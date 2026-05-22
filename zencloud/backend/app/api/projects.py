@@ -142,13 +142,18 @@ async def delete_project(
     return None
 
 
-@router.post("/{project_id}/start")
-async def start_project(
+@router.post("/{project_id}/deploy")
+async def deploy_project(
     project_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Start project container"""
+    """Deploy project from GitHub"""
+    from app.models.deployment import Deployment, DeploymentStatus
+    from app.workers.tasks import deploy_project as deploy_task
+    from app.services.github_service import GitHubService
+    import uuid as uuid_lib
+    
     project = db.query(Project).filter(
         Project.id == project_id,
         Project.user_id == current_user.id
@@ -160,8 +165,85 @@ async def start_project(
             detail="Project not found"
         )
     
-    # TODO: Implement container start logic
-    return {"message": "Project started", "project_id": str(project_id)}
+    if not current_user.github_access_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="GitHub account not connected"
+        )
+    
+    try:
+        # Get latest commit info
+        github_service = GitHubService(current_user.github_access_token)
+        repo_name = project.repository_url.split("github.com/")[-1].replace(".git", "")
+        commit_info = github_service.get_latest_commit(repo_name, project.branch)
+        
+        # Create deployment record
+        deployment = Deployment(
+            id=uuid_lib.uuid4(),
+            project_id=project.id,
+            commit_sha=commit_info["sha"],
+            commit_message=commit_info["message"],
+            status=DeploymentStatus.PENDING
+        )
+        db.add(deployment)
+        db.commit()
+        db.refresh(deployment)
+        
+        # Start deployment task
+        task = deploy_task.delay(
+            str(project.id),
+            str(deployment.id),
+            current_user.github_access_token
+        )
+        
+        return {
+            "message": "Deployment started",
+            "deployment_id": str(deployment.id),
+            "task_id": task.id
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start deployment: {str(e)}"
+        )
+
+
+@router.post("/{project_id}/start")
+async def start_project(
+    project_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Start project container"""
+    from app.services.docker_service import DockerService
+    
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.user_id == current_user.id
+    ).first()
+    
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+    
+    if not project.container_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No container found for this project"
+        )
+    
+    try:
+        docker_service = DockerService()
+        docker_service.start_container(project.container_id)
+        return {"message": "Project started", "project_id": str(project_id)}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 
 @router.post("/{project_id}/stop")
@@ -171,6 +253,8 @@ async def stop_project(
     db: Session = Depends(get_db)
 ):
     """Stop project container"""
+    from app.services.docker_service import DockerService
+    
     project = db.query(Project).filter(
         Project.id == project_id,
         Project.user_id == current_user.id
@@ -182,8 +266,21 @@ async def stop_project(
             detail="Project not found"
         )
     
-    # TODO: Implement container stop logic
-    return {"message": "Project stopped", "project_id": str(project_id)}
+    if not project.container_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No container found for this project"
+        )
+    
+    try:
+        docker_service = DockerService()
+        docker_service.stop_container(project.container_id)
+        return {"message": "Project stopped", "project_id": str(project_id)}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 
 @router.post("/{project_id}/restart")
@@ -193,6 +290,8 @@ async def restart_project(
     db: Session = Depends(get_db)
 ):
     """Restart project container"""
+    from app.services.docker_service import DockerService
+    
     project = db.query(Project).filter(
         Project.id == project_id,
         Project.user_id == current_user.id
@@ -204,5 +303,93 @@ async def restart_project(
             detail="Project not found"
         )
     
-    # TODO: Implement container restart logic
-    return {"message": "Project restarted", "project_id": str(project_id)}
+    if not project.container_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No container found for this project"
+        )
+    
+    try:
+        docker_service = DockerService()
+        docker_service.restart_container(project.container_id)
+        return {"message": "Project restarted", "project_id": str(project_id)}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.get("/{project_id}/logs")
+async def get_project_logs(
+    project_id: UUID,
+    tail: int = 100,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get project container logs"""
+    from app.services.docker_service import DockerService
+    
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.user_id == current_user.id
+    ).first()
+    
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+    
+    if not project.container_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No container found for this project"
+        )
+    
+    try:
+        docker_service = DockerService()
+        logs = docker_service.get_container_logs(project.container_id, tail)
+        return {"logs": logs}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.get("/{project_id}/stats")
+async def get_project_stats(
+    project_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get project container stats"""
+    from app.services.docker_service import DockerService
+    
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.user_id == current_user.id
+    ).first()
+    
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+    
+    if not project.container_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No container found for this project"
+        )
+    
+    try:
+        docker_service = DockerService()
+        stats = docker_service.get_container_status(project.container_id)
+        return stats
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
