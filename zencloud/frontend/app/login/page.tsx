@@ -1,7 +1,31 @@
+"use client";
+
 import Link from "next/link";
-import { Rocket, Github, Mail } from "lucide-react";
+import { Rocket, Github } from "lucide-react";
+import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      await login(email, password);
+    } catch (err: any) {
+      setError(err.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-dark-950 flex items-center justify-center px-4">
       <div className="max-w-md w-full">
@@ -33,7 +57,13 @@ export default function LoginPage() {
           </div>
 
           {/* Email Login Form */}
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
                 Email Address
@@ -41,6 +71,9 @@ export default function LoginPage() {
               <input
                 type="email"
                 id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
                 className="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 transition"
                 placeholder="you@example.com"
               />
@@ -53,6 +86,9 @@ export default function LoginPage() {
               <input
                 type="password"
                 id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
                 className="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 transition"
                 placeholder="••••••••"
               />
@@ -73,9 +109,10 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="w-full bg-primary-500 hover:bg-primary-600 text-white font-semibold py-3 px-4 rounded-lg transition glow-orange"
+              disabled={loading}
+              className="w-full bg-primary-500 hover:bg-primary-600 text-white font-semibold py-3 px-4 rounded-lg transition glow-orange disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Sign In
+              {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>
 

@@ -1,7 +1,32 @@
+"use client";
+
 import Link from "next/link";
 import { Rocket, Github, Check } from "lucide-react";
+import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function SignupPage() {
+  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { register } = useAuth();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      await register(email, username, password);
+    } catch (err: any) {
+      setError(err.message || "Registration failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-dark-950 flex items-center justify-center px-4 py-12">
       <div className="max-w-5xl w-full grid md:grid-cols-2 gap-8 items-center">
@@ -69,16 +94,25 @@ export default function SignupPage() {
             </div>
 
             {/* Signup Form */}
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
-                  Full Name
+                <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
+                  Username
                 </label>
                 <input
                   type="text"
-                  id="name"
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
                   className="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 transition"
-                  placeholder="John Doe"
+                  placeholder="johndoe"
                 />
               </div>
 
@@ -89,6 +123,9 @@ export default function SignupPage() {
                 <input
                   type="email"
                   id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                   className="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 transition"
                   placeholder="you@example.com"
                 />
@@ -101,6 +138,10 @@ export default function SignupPage() {
                 <input
                   type="password"
                   id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
                   className="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 transition"
                   placeholder="••••••••"
                 />
@@ -111,6 +152,7 @@ export default function SignupPage() {
                 <input
                   type="checkbox"
                   id="terms"
+                  required
                   className="w-4 h-4 mt-1 bg-dark-800 border-dark-700 rounded text-primary-500 focus:ring-primary-500"
                 />
                 <label htmlFor="terms" className="ml-2 text-sm text-gray-400">
@@ -127,9 +169,10 @@ export default function SignupPage() {
 
               <button
                 type="submit"
-                className="w-full bg-primary-500 hover:bg-primary-600 text-white font-semibold py-3 px-4 rounded-lg transition glow-orange"
+                disabled={loading}
+                className="w-full bg-primary-500 hover:bg-primary-600 text-white font-semibold py-3 px-4 rounded-lg transition glow-orange disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create Account
+                {loading ? "Creating Account..." : "Create Account"}
               </button>
             </form>
 

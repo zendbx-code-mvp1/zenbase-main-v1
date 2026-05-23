@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
+import uuid
 
 from app.core.database import get_db
 from app.core.security import verify_password, get_password_hash, create_access_token, decode_access_token
@@ -28,8 +29,14 @@ async def get_current_user(
     if payload is None:
         raise credentials_exception
     
-    user_id: str = payload.get("sub")
-    if user_id is None:
+    user_id_str: str = payload.get("sub")
+    if user_id_str is None:
+        raise credentials_exception
+    
+    # Convert string UUID to UUID object
+    try:
+        user_id = uuid.UUID(user_id_str)
+    except (ValueError, AttributeError):
         raise credentials_exception
     
     user = db.query(User).filter(User.id == user_id).first()
