@@ -19,14 +19,18 @@ export default function NewProjectPage() {
     setError("");
     setLoading(true);
 
+    console.log("Creating project with:", { name, repositoryUrl, branch });
+
     try {
-      await api.createProject({
+      const result = await api.createProject({
         name,
         repository_url: repositoryUrl,
         branch,
       });
+      console.log("Project created successfully:", result);
       router.push("/dashboard");
     } catch (err: any) {
+      console.error("Failed to create project:", err);
       setError(err.message || "Failed to create project");
     } finally {
       setLoading(false);

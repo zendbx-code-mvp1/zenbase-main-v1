@@ -27,7 +27,7 @@ class DatabaseTask(Task):
 
 
 @celery_app.task(bind=True, base=DatabaseTask)
-def deploy_project(self, project_id: str, deployment_id: str, access_token: str):
+def deploy_project(self, project_id: str, deployment_id: str, access_token: str = None):
     """Deploy a project from GitHub"""
     db = self.db
     deployment_service = DeploymentService()
@@ -56,7 +56,7 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str)
         project_dir = deployment_service.clone_repository(
             project.repository_url,
             project.branch,
-            access_token
+            access_token  # Can be None for public repos
         )
         logs.append(f"✅ Repository cloned to {project_dir}")
         deployment.build_logs = "\n".join(logs)
@@ -145,7 +145,7 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str)
         logs.append(f"   Port: {container_info['port']}")
         logs.append(f"\n🎉 Deployment successful!")
         logs.append(f"   URL: http://localhost:{port}")
-        logs.append(f"   Subdomain: https://{project.subdomain}.zencloud.dev (requires Nginx)")
+        logs.append(f"   Access your app at the URL above")
         
         # Update database
         deployment.build_logs = "\n".join(logs)

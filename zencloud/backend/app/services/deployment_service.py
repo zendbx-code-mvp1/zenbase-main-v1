@@ -16,13 +16,13 @@ class DeploymentService:
     def __init__(self, work_dir: Optional[str] = None):
         self.work_dir = work_dir or tempfile.gettempdir()
     
-    def clone_repository(self, repo_url: str, branch: str, access_token: str) -> str:
+    def clone_repository(self, repo_url: str, branch: str, access_token: Optional[str] = None) -> str:
         """Clone Git repository to temporary directory"""
         # Create unique directory for this deployment
         deploy_dir = tempfile.mkdtemp(dir=self.work_dir)
         
         try:
-            # Add token to URL for private repos
+            # Add token to URL for private repos (only if token is provided)
             if access_token and "github.com" in repo_url:
                 auth_url = repo_url.replace("https://", f"https://{access_token}@")
             else:
@@ -72,11 +72,17 @@ class DeploymentService:
                 
                 # Detect React
                 if "react" in dependencies:
+                    # Check if it's Vite or CRA
+                    is_vite = "vite" in dependencies or "vite" in dev_dependencies
+                    build_dir = "dist" if is_vite else "build"
+                    
                     return Framework.REACT, {
                         "build_command": scripts.get("build", "npm run build"),
-                        "start_command": "npx serve -s build",
+                        "start_command": "npx serve -s " + build_dir,
                         "port": 3000,
-                        "node_version": "18"
+                        "node_version": "18",
+                        "build_dir": build_dir,
+                        "project_dir": project_dir
                     }
                 
                 # Generic Node.js
@@ -153,21 +159,29 @@ CMD ["node", "server.js"]
 """
         
         elif framework == Framework.REACT:
+            # Check if package-lock.json exists
+            project_dir = config.get('project_dir', '.')
+            has_lock = (Path(project_dir) / "package-lock.json").exists()
+            install_cmd = "npm ci" if has_lock else "npm install"
+            
+            # Detect build output directory (Vite uses 'dist', CRA uses 'build')
+            build_dir = config.get('build_dir', 'dist')
+            
             return f"""FROM node:{config['node_version']}-alpine AS build
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN {install_cmd}
 COPY . .
 RUN npm run build
 
 FROM node:{config['node_version']}-alpine
 WORKDIR /app
 RUN npm install -g serve
-COPY --from=build /app/build ./build
+COPY --from=build /app/{build_dir} ./{build_dir}
 
 EXPOSE {config['port']}
-CMD ["serve", "-s", "build", "-l", "{config['port']}"]
+CMD ["serve", "-s", "{build_dir}", "-l", "{config['port']}"]
 """
         
         elif framework == Framework.NODEJS:

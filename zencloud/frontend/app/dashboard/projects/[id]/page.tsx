@@ -32,6 +32,16 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
     if (user) loadData();
   }, [user, authLoading]);
 
+  // Auto-refresh deployments every 3 seconds when on deployments tab
+  useEffect(() => {
+    if (activeTab === "deployments" && project) {
+      const interval = setInterval(() => {
+        api.getDeployments(params.id).then(setDeployments).catch(() => {});
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, project, params.id]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -50,8 +60,12 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
 
   const loadLogs = async () => {
     try {
+      if (!project?.container_id) {
+        setLogs("No container found. Deploy the project first to see logs.");
+        return;
+      }
       const data = await api.getProjectLogs(params.id);
-      setLogs(typeof data === "string" ? data : JSON.stringify(data, null, 2));
+      setLogs(typeof data === "string" ? data : data.logs || JSON.stringify(data, null, 2));
     } catch (err: any) {
       setLogs("Failed to load logs: " + err.message);
     }
@@ -69,6 +83,16 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
       else if (action === "start") await api.startProject(params.id);
       else if (action === "stop") await api.stopProject(params.id);
       else if (action === "restart") await api.restartProject(params.id);
+      else if (action === "delete") {
+        if (confirm(`Are you sure you want to delete "${project?.name}"? This action cannot be undone.`)) {
+          await api.deleteProject(params.id);
+          router.push("/dashboard/projects");
+          return;
+        } else {
+          setActionLoading("");
+          return;
+        }
+      }
       await loadData();
     } catch (err: any) {
       setError(err.message || `Failed to ${action}`);
@@ -162,11 +186,12 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
             </div>
 
             <div className="flex items-center gap-2">
-              {project?.status === "stopped" ? (
+              {project?.status === "stopped" || !project?.container_id ? (
                 <button
                   onClick={() => handleAction("start")}
-                  disabled={!!actionLoading}
-                  className="bg-green-500/10 hover:bg-green-500/20 text-green-500 px-3 py-2 rounded-lg text-sm transition flex items-center gap-2 disabled:opacity-50"
+                  disabled={!!actionLoading || !project?.container_id}
+                  className="bg-green-500/10 hover:bg-green-500/20 text-green-500 px-3 py-2 rounded-lg text-sm transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={!project?.container_id ? "Deploy the project first" : ""}
                 >
                   {actionLoading === "start" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                   Start
@@ -174,8 +199,8 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
               ) : (
                 <button
                   onClick={() => handleAction("stop")}
-                  disabled={!!actionLoading}
-                  className="bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 px-3 py-2 rounded-lg text-sm transition flex items-center gap-2 disabled:opacity-50"
+                  disabled={!!actionLoading || !project?.container_id}
+                  className="bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 px-3 py-2 rounded-lg text-sm transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {actionLoading === "stop" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Square className="w-4 h-4" />}
                   Stop
@@ -183,8 +208,9 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
               )}
               <button
                 onClick={() => handleAction("restart")}
-                disabled={!!actionLoading}
-                className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 px-3 py-2 rounded-lg text-sm transition flex items-center gap-2 disabled:opacity-50"
+                disabled={!!actionLoading || !project?.container_id}
+                className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 px-3 py-2 rounded-lg text-sm transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={!project?.container_id ? "Deploy the project first" : ""}
               >
                 {actionLoading === "restart" ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />}
                 Restart
@@ -234,18 +260,18 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
             </div>
             <div>
               <div className="text-gray-500 mb-1">URL</div>
-              {project?.subdomain ? (
+              {project?.port ? (
                 <a
-                  href={`https://${project.subdomain}.zencloud.dev`}
+                  href={`http://localhost:${project.port}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[#FF6B35] hover:text-[#FF5722] transition flex items-center gap-1 font-medium"
                 >
-                  {project.subdomain}.zencloud.dev
+                  localhost:{project.port}
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               ) : (
-                <span className="text-gray-500">—</span>
+                <span className="text-gray-500">Deploy to get URL</span>
               )}
             </div>
           </div>
@@ -290,26 +316,38 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
               </div>
             ) : (
               deployments.map((dep, i) => (
-                <div key={dep.id || i} className="bg-[#0F0F0F] border border-[#1A1A1A] rounded-xl p-4 hover:border-[#2A2A2A] transition">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div>
-                        <div className="text-white text-sm font-medium mb-1">
-                          {dep.commit_message || `Deployment #${deployments.length - i}`}
-                        </div>
-                        <div className="text-gray-500 text-xs flex items-center gap-3">
-                          {dep.commit_sha && (
-                            <span className="font-mono">{dep.commit_sha.slice(0, 7)}</span>
-                          )}
-                          {dep.created_at && (
-                            <span>{new Date(dep.created_at).toLocaleString()}</span>
-                          )}
+                <div key={dep.id || i} className="bg-[#0F0F0F] border border-[#1A1A1A] rounded-xl overflow-hidden hover:border-[#2A2A2A] transition">
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-4">
+                        <div>
+                          <div className="text-white text-sm font-medium mb-1">
+                            {dep.commit_message || `Deployment #${deployments.length - i}`}
+                          </div>
+                          <div className="text-gray-500 text-xs flex items-center gap-3">
+                            {dep.commit_sha && (
+                              <span className="font-mono">{dep.commit_sha.slice(0, 7)}</span>
+                            )}
+                            {dep.created_at && (
+                              <span>{new Date(dep.created_at).toLocaleString()}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
+                      <span className={`text-sm font-medium capitalize ${getDeployStatusColor(dep.status)}`}>
+                        {dep.status || "unknown"}
+                      </span>
                     </div>
-                    <span className={`text-sm font-medium capitalize ${getDeployStatusColor(dep.status)}`}>
-                      {dep.status || "unknown"}
-                    </span>
+                    {dep.build_logs && (
+                      <details className="mt-3">
+                        <summary className="text-xs text-gray-400 cursor-pointer hover:text-white transition">
+                          View build logs
+                        </summary>
+                        <pre className="mt-2 p-3 bg-[#0A0A0A] border border-[#1A1A1A] rounded-lg text-xs text-gray-300 font-mono overflow-auto max-h-[300px] whitespace-pre-wrap">
+                          {dep.build_logs}
+                        </pre>
+                      </details>
+                    )}
                   </div>
                 </div>
               ))
@@ -379,7 +417,12 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
               <p className="text-gray-400 text-sm mb-4">
                 Deleting this project will remove all deployments and data. This cannot be undone.
               </p>
-              <button className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 px-5 py-2.5 rounded-lg text-sm font-medium transition">
+              <button 
+                onClick={() => handleAction("delete")}
+                disabled={!!actionLoading}
+                className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 px-5 py-2.5 rounded-lg text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {actionLoading === "delete" && <Loader2 className="w-4 h-4 animate-spin" />}
                 Delete Project
               </button>
             </div>

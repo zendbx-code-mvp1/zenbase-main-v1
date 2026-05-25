@@ -151,7 +151,6 @@ async def deploy_project(
     """Deploy project from GitHub"""
     from app.models.deployment import Deployment, DeploymentStatus
     from app.workers.tasks import deploy_project as deploy_task
-    from app.services.github_service import GitHubService
     import uuid as uuid_lib
     
     project = db.query(Project).filter(
@@ -165,35 +164,25 @@ async def deploy_project(
             detail="Project not found"
         )
     
-    if not current_user.github_access_token:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="GitHub account not connected"
-        )
-    
     try:
-        # Get latest commit info
-        github_service = GitHubService(current_user.github_access_token)
-        repo_name = project.repository_url.split("github.com/")[-1].replace(".git", "")
-        commit_info = github_service.get_latest_commit(repo_name, project.branch)
-        
         # Create deployment record
         deployment = Deployment(
             id=uuid_lib.uuid4(),
             project_id=project.id,
-            commit_sha=commit_info["sha"],
-            commit_message=commit_info["message"],
+            commit_sha="manual-deploy",
+            commit_message="Manual deployment",
             status=DeploymentStatus.PENDING
         )
         db.add(deployment)
         db.commit()
         db.refresh(deployment)
         
-        # Start deployment task
+        # Start deployment task (pass None for GitHub token if not connected)
+        github_token = current_user.github_access_token if current_user.github_access_token else None
         task = deploy_task.delay(
             str(project.id),
             str(deployment.id),
-            current_user.github_access_token
+            github_token
         )
         
         return {

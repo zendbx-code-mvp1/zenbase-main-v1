@@ -10,7 +10,10 @@ class ApiClient {
   }
 
   async request(endpoint: string, options: RequestInit = {}) {
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const url = `${API_URL}${endpoint}`;
+    console.log(`API Request: ${options.method || 'GET'} ${url}`, options.body);
+    
+    const response = await fetch(url, {
       ...options,
       headers: {
         ...this.getHeaders(),
@@ -18,12 +21,17 @@ class ApiClient {
       },
     });
 
+    console.log(`API Response: ${response.status} ${response.statusText}`);
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
+      console.error('API Error:', error);
       throw new Error(error.detail || 'Request failed');
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log('API Response Data:', data);
+    return data;
   }
 
   // Auth
