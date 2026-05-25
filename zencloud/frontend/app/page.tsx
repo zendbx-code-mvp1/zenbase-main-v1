@@ -1,369 +1,465 @@
+"use client";
+
 import Link from "next/link";
-import { 
-  Rocket, 
-  Zap, 
-  Shield, 
-  Database, 
-  Globe, 
-  BarChart3,
-  ArrowRight,
-  Check,
-  Github,
-  Terminal,
-  Clock
+import { useState } from "react";
+import {
+  Rocket, Zap, Shield, Database, Globe, BarChart3,
+  ArrowRight, Check, Github, Terminal, Clock, Server,
+  GitBranch, Activity, ChevronRight, Star, Play,
+  Lock, RefreshCw, Cpu, Package
 } from "lucide-react";
 
+const MARQUEE_ITEMS = [
+  "Next.js", "React", "Vue", "Nuxt", "SvelteKit", "Remix",
+  "FastAPI", "Django", "Express", "NestJS", "Laravel", "Rails",
+];
+
+const LIVE_DEPLOYS = [
+  { project: "my-portfolio", user: "alex_dev", time: "2s ago", status: "success", framework: "Next.js" },
+  { project: "api-service", user: "priya_k", time: "14s ago", status: "building", framework: "FastAPI" },
+  { project: "dashboard-app", user: "marco_r", time: "31s ago", status: "success", framework: "React" },
+  { project: "blog-site", user: "sarah_m", time: "1m ago", status: "success", framework: "Nuxt" },
+  { project: "backend-api", user: "dev_john", time: "2m ago", status: "success", framework: "Express" },
+];
+
+const TESTIMONIALS = [
+  {
+    name: "Priya Sharma",
+    role: "Full Stack Developer",
+    avatar: "PS",
+    text: "ZenCloud cut our deployment time from 45 minutes to under 2 minutes. The GitHub integration just works — push and it's live.",
+    stars: 5,
+  },
+  {
+    name: "Marcus Chen",
+    role: "Startup Founder",
+    avatar: "MC",
+    text: "We went from idea to production in a single afternoon. No DevOps hire needed. ZenCloud handles everything.",
+    stars: 5,
+  },
+  {
+    name: "Aisha Patel",
+    role: "Backend Engineer",
+    avatar: "AP",
+    text: "The auto-scaling saved us during a traffic spike. Zero downtime, zero intervention. Exactly what we needed.",
+    stars: 5,
+  },
+];
+
 export default function Home() {
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
+
   return (
-    <div className="min-h-screen bg-dark-950">
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 glass border-b border-dark-700/50">
+    <div className="min-h-screen bg-[#080808] text-white overflow-x-hidden">
+
+      {/* ── NAV ── */}
+      <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-[#080808]/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <Rocket className="w-8 h-8 text-primary-500" />
-              <span className="text-2xl font-bold text-white">ZenCloud</span>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-[#FF6B35] rounded-lg flex items-center justify-center">
+                <Rocket className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-xl font-bold tracking-tight">ZenCloud</span>
             </div>
-            
-            <div className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-gray-300 hover:text-white transition">Features</a>
-              <a href="#pricing" className="text-gray-300 hover:text-white transition">Pricing</a>
-              <a href="#demo" className="text-gray-300 hover:text-white transition">Demo</a>
-              <Link href="/login" className="text-gray-300 hover:text-white transition">Login</Link>
-              <Link 
-                href="/signup" 
-                className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-2 rounded-lg transition glow-orange"
+
+            <div className="hidden md:flex items-center gap-8 text-sm text-gray-400">
+              <a href="#features" className="hover:text-white transition">Features</a>
+              <a href="#how-it-works" className="hover:text-white transition">How it works</a>
+              <a href="#pricing" className="hover:text-white transition">Pricing</a>
+              <a href="#testimonials" className="hover:text-white transition">Reviews</a>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Link href="/login" className="text-sm text-gray-400 hover:text-white transition px-3 py-2">
+                Sign in
+              </Link>
+              <Link
+                href="/signup"
+                className="text-sm bg-[#FF6B35] hover:bg-[#e85d2a] text-white px-4 py-2 rounded-lg font-medium transition"
               >
-                Start Free
+                Start free
               </Link>
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4 relative overflow-hidden">
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-primary-500/10 rounded-full blur-3xl animate-float"></div>
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-primary-500/5 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
-        </div>
-        
-        <div className="max-w-7xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center space-x-2 glass rounded-full px-6 py-3 mb-8 hover-lift">
-            <Terminal className="w-4 h-4 text-primary-500" />
-            <span className="text-sm text-gray-300 font-medium">Deploy in 30 Seconds</span>
-            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+      {/* ── HERO ── */}
+      <section className="pt-32 pb-24 px-4 relative">
+        {/* Grid background */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `linear-gradient(rgba(255,107,53,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,107,53,0.03) 1px, transparent 1px)`,
+            backgroundSize: "60px 60px",
+          }}
+        />
+        {/* Glow */}
+        <div className="absolute top-40 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-[#FF6B35]/10 rounded-full blur-[120px] pointer-events-none" />
+
+        <div className="max-w-5xl mx-auto text-center relative z-10">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 border border-white/10 bg-white/5 rounded-full px-4 py-1.5 text-sm text-gray-300 mb-8">
+            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+            <span>Live deploys happening right now</span>
+            <ChevronRight className="w-3.5 h-3.5 text-gray-500" />
           </div>
-          
-          <h1 className="text-6xl md:text-8xl font-bold text-white mb-6 leading-tight">
-            Deploy Your Apps
+
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.08] mb-6">
+            Ship your app
             <br />
-            <span className="gradient-text">In Minutes</span>
+            <span className="text-[#FF6B35]">before lunch.</span>
           </h1>
-          
-          <p className="text-xl md:text-2xl text-gray-400 mb-12 max-w-3xl mx-auto leading-relaxed">
-            Push Code → Deploy → Go Live. No DevOps complexity. No configuration hell. 
-            <br className="hidden md:block" />
-            Just connect GitHub and deploy.
+
+          <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+            Connect GitHub, pick a repo, and go live in seconds.
+            No YAML. No Kubernetes. No DevOps degree required.
           </p>
-          
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-            <Link 
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12">
+            <Link
               href="/signup"
-              className="bg-primary-500 hover:bg-primary-600 text-white px-10 py-5 rounded-xl text-lg font-bold transition animate-glow flex items-center space-x-3 group"
+              className="flex items-center gap-2 bg-[#FF6B35] hover:bg-[#e85d2a] text-white px-7 py-3.5 rounded-xl text-base font-semibold transition group"
             >
-              <span>Start Building Free</span>
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              Deploy for free
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </Link>
-            <a 
-              href="#demo"
-              className="glass hover:bg-dark-800 text-white px-10 py-5 rounded-xl text-lg font-bold transition hover-lift flex items-center space-x-3"
+            <a
+              href="#how-it-works"
+              className="flex items-center gap-2 border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/8 text-white px-7 py-3.5 rounded-xl text-base font-medium transition"
             >
-              <span>Watch Demo</span>
-              <Zap className="w-5 h-5" />
+              <Play className="w-4 h-4" />
+              See how it works
             </a>
           </div>
-          
-          <div className="flex items-center justify-center space-x-8 text-sm text-gray-400 mb-16">
-            <div className="flex items-center space-x-2">
-              <Check className="w-5 h-5 text-green-500" />
-              <span>No credit card required</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Check className="w-5 h-5 text-green-500" />
-              <span>2 free projects forever</span>
-            </div>
-          </div>
 
-          {/* Terminal Demo */}
-          <div className="mt-16 max-w-4xl mx-auto">
-            <div className="glass rounded-2xl overflow-hidden hover-lift shadow-2xl">
-              <div className="bg-dark-900 px-6 py-4 flex items-center space-x-3 border-b border-dark-700">
-                <div className="flex space-x-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                  <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                </div>
-                <span className="text-sm text-gray-400 font-mono ml-4">zencloud-terminal</span>
+          <div className="flex items-center justify-center flex-wrap gap-6 text-sm text-gray-500">
+            <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-green-500" /> No credit card</span>
+            <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-green-500" /> 2 free projects forever</span>
+            <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-green-500" /> Deploy in 30 seconds</span>
+          </div>
+        </div>
+
+        {/* Live deploy feed */}
+        <div className="max-w-3xl mx-auto mt-16 relative z-10">
+          <div className="border border-white/8 rounded-2xl overflow-hidden bg-[#0d0d0d]">
+            {/* Window chrome */}
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-[#111]">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-[#FF5F57]" />
+                <div className="w-3 h-3 rounded-full bg-[#FEBC2E]" />
+                <div className="w-3 h-3 rounded-full bg-[#28C840]" />
               </div>
-              <div className="p-8 font-mono text-left text-sm bg-gradient-to-br from-dark-900 to-dark-950">
-                <div className="text-gray-400 mb-2">
-                  <span className="text-green-500">user@zencloud</span>
-                  <span className="text-gray-500">:</span>
-                  <span className="text-blue-500">~/projects</span>
-                  <span className="text-gray-500">$</span> zencloud deploy
-                </div>
-                <div className="text-primary-500 mt-3 space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <Zap className="w-4 h-4 animate-pulse" />
-                    <span>Detecting framework... Next.js detected</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Rocket className="w-4 h-4" />
-                    <span>Building application...</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Globe className="w-4 h-4" />
-                    <span>Deploying to production...</span>
-                  </div>
-                </div>
-                <div className="text-green-500 mt-4 flex items-center space-x-2 font-bold">
-                  <Check className="w-5 h-5" />
-                  <span>✓ Deployed to https://my-app.zencloud.dev</span>
-                </div>
-                <div className="mt-4 text-gray-500 text-xs">
-                  Build completed in 2.3s • Deploy time: 4.1s
-                </div>
+              <span className="text-xs text-gray-500 ml-2 font-mono">zencloud — live deployments</span>
+              <div className="ml-auto flex items-center gap-1.5 text-xs text-green-400">
+                <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                Live
               </div>
+            </div>
+            {/* Feed rows */}
+            <div className="divide-y divide-white/5">
+              {LIVE_DEPLOYS.map((d, i) => (
+                <div key={i} className="flex items-center justify-between px-4 py-3 hover:bg-white/2 transition">
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-md bg-[#FF6B35]/15 flex items-center justify-center">
+                      <Rocket className="w-3.5 h-3.5 text-[#FF6B35]" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-white">{d.project}</span>
+                      <span className="text-xs text-gray-500 ml-2">by {d.user}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500 font-mono">{d.framework}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      d.status === "success"
+                        ? "bg-green-500/10 text-green-400"
+                        : "bg-blue-500/10 text-blue-400"
+                    }`}>
+                      {d.status === "building" ? "● building" : "✓ deployed"}
+                    </span>
+                    <span className="text-xs text-gray-600">{d.time}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Trust Section */}
-      <section className="py-12 border-y border-dark-800">
-        <div className="max-w-7xl mx-auto px-4">
-          <p className="text-center text-gray-500 text-sm mb-8">TRUSTED BY DEVELOPERS WORLDWIDE</p>
-          <div className="flex items-center justify-center space-x-12 text-gray-600">
-            <div className="text-2xl font-bold">10,000+</div>
-            <div className="text-2xl font-bold">50,000+</div>
-            <div className="text-2xl font-bold">99.9%</div>
-          </div>
-          <div className="flex items-center justify-center space-x-12 text-gray-500 text-sm mt-2">
-            <div>Projects</div>
-            <div>Deployments</div>
-            <div>Uptime</div>
-          </div>
+      {/* ── MARQUEE ── */}
+      <div className="border-y border-white/5 py-4 overflow-hidden bg-[#0a0a0a]">
+        <div className="flex gap-12 animate-[marquee_20s_linear_infinite] whitespace-nowrap">
+          {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
+            <span key={i} className="text-sm text-gray-500 font-medium shrink-0">
+              {item}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* ── STATS ── */}
+      <section className="py-20 px-4">
+        <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 rounded-2xl overflow-hidden border border-white/5">
+          {[
+            { value: "10,000+", label: "Projects deployed" },
+            { value: "50,000+", label: "Successful builds" },
+            { value: "99.9%", label: "Uptime SLA" },
+            { value: "<30s", label: "Average deploy time" },
+          ].map((stat, i) => (
+            <div key={i} className="bg-[#0d0d0d] px-8 py-10 text-center">
+              <div className="text-3xl md:text-4xl font-bold text-white mb-1">{stat.value}</div>
+              <div className="text-sm text-gray-500">{stat.label}</div>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="py-20 px-4 relative">
-        <div className="max-w-7xl mx-auto">
+      {/* ── HOW IT WORKS ── */}
+      <section id="how-it-works" className="py-24 px-4">
+        <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-5xl font-bold text-white mb-4">Get Started In 3 Simple Steps</h2>
-            <p className="text-gray-400 text-xl">No complex setup. No configuration. Just build.</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                step: "1",
-                icon: Github,
-                title: "Connect GitHub",
-                description: "Link your GitHub account and select the repository you want to deploy.",
-                color: "from-purple-500 to-pink-500"
-              },
-              {
-                step: "2",
-                icon: Zap,
-                title: "Auto Deploy",
-                description: "We detect your framework and automatically build and deploy your application.",
-                color: "from-primary-500 to-yellow-500"
-              },
-              {
-                step: "3",
-                icon: Globe,
-                title: "Go Live",
-                description: "Your app is live with HTTPS, custom domain support, and automatic scaling.",
-                color: "from-green-500 to-emerald-500"
-              }
-            ].map((item) => (
-              <div key={item.step} className="glass rounded-2xl p-8 hover:border-primary-500/50 transition hover-lift relative overflow-hidden group">
-                {/* Background gradient on hover */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${item.color} opacity-0 group-hover:opacity-5 transition-opacity duration-500`}></div>
-                
-                <div className="relative z-10">
-                  <div className={`w-16 h-16 bg-gradient-to-br ${item.color} rounded-2xl flex items-center justify-center mb-6 shadow-lg`}>
-                    <item.icon className="w-8 h-8 text-white" />
-                  </div>
-                  <div className="text-primary-500 font-bold text-lg mb-3">Step {item.step}</div>
-                  <h3 className="text-2xl font-bold text-white mb-4">{item.title}</h3>
-                  <p className="text-gray-400 leading-relaxed">{item.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section id="features" className="py-20 px-4 bg-dark-900/30 relative">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-5xl font-bold text-white mb-4">Everything You Need Built-In</h2>
-            <p className="text-gray-400 text-xl">Complete deployment platform with all the features you need</p>
+            <p className="text-xs font-semibold tracking-widest text-[#FF6B35] uppercase mb-3">How it works</p>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+              From code to live
+              <br />
+              in three steps.
+            </h2>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
             {[
               {
-                icon: Rocket,
-                title: "Instant Deployments",
-                description: "Deploy from GitHub with automatic framework detection and zero configuration.",
-                gradient: "from-primary-500 to-orange-600"
+                num: "01",
+                icon: Github,
+                title: "Connect your repo",
+                desc: "Link GitHub and select any repository. We detect your framework automatically — no config files needed.",
               },
               {
-                icon: Shield,
-                title: "SSL by Default",
-                description: "Automatic HTTPS certificates with Let's Encrypt. Secure from day one.",
-                gradient: "from-green-500 to-emerald-600"
+                num: "02",
+                icon: Zap,
+                title: "We build it",
+                desc: "ZenCloud runs your build pipeline, installs dependencies, and packages your app in an isolated container.",
               },
               {
-                icon: Database,
-                title: "Managed Databases",
-                description: "PostgreSQL, MySQL, MongoDB with automated backups and monitoring.",
-                gradient: "from-blue-500 to-cyan-600"
-              },
-              {
+                num: "03",
                 icon: Globe,
-                title: "Custom Domains",
-                description: "Connect your own domain with automatic SSL certificate generation.",
-                gradient: "from-purple-500 to-pink-600"
+                title: "You go live",
+                desc: "Your app gets a live URL with HTTPS, auto-scaling, and zero-downtime deploys on every push.",
               },
-              {
-                icon: BarChart3,
-                title: "Real-time Monitoring",
-                description: "Track CPU, RAM, and application metrics with live dashboards.",
-                gradient: "from-yellow-500 to-orange-600"
-              },
-              {
-                icon: Clock,
-                title: "Auto Scaling",
-                description: "Automatically scale your application based on traffic and load.",
-                gradient: "from-indigo-500 to-purple-600"
-              }
-            ].map((feature, index) => (
-              <div key={index} className="glass rounded-2xl p-8 hover:border-primary-500/50 transition hover-lift group">
-                <div className={`w-14 h-14 bg-gradient-to-br ${feature.gradient} rounded-xl flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform`}>
-                  <feature.icon className="w-7 h-7 text-white" />
+            ].map((step) => (
+              <div key={step.num} className="relative border border-white/8 rounded-2xl p-7 bg-[#0d0d0d] group hover:border-[#FF6B35]/30 transition">
+                <div className="text-5xl font-black text-white/5 absolute top-5 right-6 select-none">{step.num}</div>
+                <div className="w-10 h-10 rounded-xl bg-[#FF6B35]/10 flex items-center justify-center mb-5">
+                  <step.icon className="w-5 h-5 text-[#FF6B35]" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
-                <p className="text-gray-400 leading-relaxed">{feature.description}</p>
+                <h3 className="text-lg font-semibold text-white mb-2">{step.title}</h3>
+                <p className="text-sm text-gray-400 leading-relaxed">{step.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 px-4">
-        <div className="max-w-7xl mx-auto">
+      {/* ── FEATURES ── */}
+      <section id="features" className="py-24 px-4 bg-[#0a0a0a]">
+        <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-5xl font-bold text-white mb-4">Simple, Transparent Pricing</h2>
-            <p className="text-gray-400 text-xl">Start free, upgrade as you grow. No hidden fees.</p>
+            <p className="text-xs font-semibold tracking-widest text-[#FF6B35] uppercase mb-3">Features</p>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+              Everything included.
+              <br />
+              Nothing to configure.
+            </h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              {
+                icon: Rocket,
+                title: "Instant Deployments",
+                desc: "Push to GitHub and your app is live in under 30 seconds. Automatic framework detection.",
+              },
+              {
+                icon: Lock,
+                title: "SSL by Default",
+                desc: "Every project gets a free HTTPS certificate. Automatic renewal, zero configuration.",
+              },
+              {
+                icon: Database,
+                title: "Managed Databases",
+                desc: "PostgreSQL and Redis with automated backups, monitoring, and one-click provisioning.",
+              },
+              {
+                icon: Globe,
+                title: "Custom Domains",
+                desc: "Point your domain to ZenCloud and we handle DNS, SSL, and routing automatically.",
+              },
+              {
+                icon: BarChart3,
+                title: "Real-time Metrics",
+                desc: "CPU, memory, request rate, and error tracking — all in a live dashboard.",
+              },
+              {
+                icon: RefreshCw,
+                title: "Auto Scaling",
+                desc: "Traffic spike? We scale up automatically and back down when it's quiet.",
+              },
+              {
+                icon: GitBranch,
+                title: "Preview Deployments",
+                desc: "Every pull request gets its own live preview URL. Share before you merge.",
+              },
+              {
+                icon: Terminal,
+                title: "Build Logs",
+                desc: "Full streaming build and runtime logs. Debug issues in real time.",
+              },
+              {
+                icon: Cpu,
+                title: "Container Isolation",
+                desc: "Each project runs in its own container. No noisy neighbours, no shared resources.",
+              },
+            ].map((f, i) => (
+              <div key={i} className="border border-white/6 rounded-xl p-6 bg-[#0d0d0d] hover:border-white/12 transition group">
+                <div className="w-9 h-9 rounded-lg bg-[#FF6B35]/10 flex items-center justify-center mb-4 group-hover:bg-[#FF6B35]/15 transition">
+                  <f.icon className="w-4.5 h-4.5 text-[#FF6B35]" style={{ width: "18px", height: "18px" }} />
+                </div>
+                <h3 className="text-sm font-semibold text-white mb-1.5">{f.title}</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── TESTIMONIALS ── */}
+      <section id="testimonials" className="py-24 px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-xs font-semibold tracking-widest text-[#FF6B35] uppercase mb-3">Reviews</p>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+              Loved by developers.
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-5">
+            {TESTIMONIALS.map((t, i) => (
+              <div key={i} className="border border-white/8 rounded-2xl p-6 bg-[#0d0d0d] flex flex-col gap-4">
+                <div className="flex gap-0.5">
+                  {Array.from({ length: t.stars }).map((_, j) => (
+                    <Star key={j} className="w-4 h-4 fill-[#FF6B35] text-[#FF6B35]" />
+                  ))}
+                </div>
+                <p className="text-sm text-gray-300 leading-relaxed flex-1">"{t.text}"</p>
+                <div className="flex items-center gap-3 pt-2 border-t border-white/5">
+                  <div className="w-9 h-9 rounded-full bg-[#FF6B35]/20 flex items-center justify-center text-xs font-bold text-[#FF6B35]">
+                    {t.avatar}
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-white">{t.name}</div>
+                    <div className="text-xs text-gray-500">{t.role}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── PRICING ── */}
+      <section id="pricing" className="py-24 px-4 bg-[#0a0a0a]">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-xs font-semibold tracking-widest text-[#FF6B35] uppercase mb-3">Pricing</p>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
+              Simple pricing.
+              <br />
+              No surprises.
+            </h2>
+            {/* Toggle */}
+            <div className="inline-flex items-center gap-1 border border-white/10 bg-white/5 rounded-lg p-1 mt-4">
+              <button
+                onClick={() => setBillingCycle("monthly")}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${billingCycle === "monthly" ? "bg-white text-black" : "text-gray-400 hover:text-white"}`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setBillingCycle("yearly")}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition flex items-center gap-2 ${billingCycle === "yearly" ? "bg-white text-black" : "text-gray-400 hover:text-white"}`}
+              >
+                Yearly
+                <span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">-20%</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-5">
             {[
               {
                 name: "Free",
-                price: "$0",
-                description: "Perfect for trying out ZenCloud",
-                features: [
-                  "2 projects",
-                  "1 GB storage per project",
-                  "Community support",
-                  "All core features",
-                  "API access"
-                ],
-                cta: "Start Free",
-                popular: false
+                price: { monthly: "$0", yearly: "$0" },
+                desc: "For hobby projects and learning.",
+                features: ["2 projects", "1 GB storage", "Community support", "Shared infrastructure", "HTTPS included"],
+                cta: "Get started free",
+                highlight: false,
               },
               {
                 name: "Pro",
-                price: "$29",
-                description: "For professionals and small teams",
-                features: [
-                  "Unlimited projects",
-                  "10 GB storage per project",
-                  "Priority support",
-                  "Advanced features",
-                  "Custom domains",
-                  "Team collaboration",
-                  "API rate limits: 10k/day"
-                ],
-                cta: "Start Pro Trial",
-                popular: true
+                price: { monthly: "$29", yearly: "$23" },
+                desc: "For professionals shipping real products.",
+                features: ["Unlimited projects", "10 GB storage", "Priority support", "Custom domains", "Preview deployments", "Team collaboration", "Advanced metrics"],
+                cta: "Start Pro trial",
+                highlight: true,
               },
               {
                 name: "Team",
-                price: "$99",
-                description: "For growing teams",
-                features: [
-                  "Everything in Pro",
-                  "100 GB storage per project",
-                  "Dedicated support",
-                  "SSO authentication",
-                  "Advanced RBAC",
-                  "Audit logs",
-                  "API rate limits: 100k/day",
-                  "SLA guarantee"
-                ],
-                cta: "Start Team Trial",
-                popular: false
-              }
-            ].map((plan, index) => (
-              <div 
-                key={index} 
-                className={`glass rounded-2xl p-8 hover-lift relative ${
-                  plan.popular 
-                    ? 'border-2 border-primary-500 shadow-2xl scale-105' 
-                    : ''
+                price: { monthly: "$99", yearly: "$79" },
+                desc: "For growing teams with serious workloads.",
+                features: ["Everything in Pro", "100 GB storage", "Dedicated support", "SSO & RBAC", "Audit logs", "SLA guarantee", "Dedicated infra"],
+                cta: "Start Team trial",
+                highlight: false,
+              },
+            ].map((plan) => (
+              <div
+                key={plan.name}
+                className={`relative rounded-2xl p-7 flex flex-col gap-6 ${
+                  plan.highlight
+                    ? "bg-[#FF6B35] text-white"
+                    : "border border-white/8 bg-[#0d0d0d]"
                 }`}
               >
-                {plan.popular && (
-                  <div className="absolute -top-5 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-gradient-to-r from-primary-500 to-orange-600 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg glow-orange-sm">
-                      Most Popular
-                    </span>
+                {plan.highlight && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-[#FF6B35] text-xs font-bold px-3 py-1 rounded-full">
+                    Most popular
                   </div>
                 )}
-                
-                <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
-                <p className="text-gray-400 text-sm mb-6">{plan.description}</p>
-                
-                <div className="mb-8">
-                  <span className="text-6xl font-bold text-white">{plan.price}</span>
-                  <span className="text-gray-400 text-lg">/month</span>
+                <div>
+                  <div className={`text-sm font-semibold mb-1 ${plan.highlight ? "text-white/80" : "text-gray-400"}`}>{plan.name}</div>
+                  <div className="flex items-end gap-1 mb-1">
+                    <span className="text-4xl font-bold">{plan.price[billingCycle]}</span>
+                    <span className={`text-sm mb-1 ${plan.highlight ? "text-white/60" : "text-gray-500"}`}>/mo</span>
+                  </div>
+                  <p className={`text-sm ${plan.highlight ? "text-white/70" : "text-gray-500"}`}>{plan.desc}</p>
                 </div>
 
-                <ul className="space-y-4 mb-8">
-                  {plan.features.map((feature, i) => (
-                    <li key={i} className="flex items-start space-x-3">
-                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-300">{feature}</span>
+                <ul className="space-y-2.5 flex-1">
+                  {plan.features.map((f, i) => (
+                    <li key={i} className="flex items-center gap-2.5 text-sm">
+                      <Check className={`w-4 h-4 shrink-0 ${plan.highlight ? "text-white" : "text-[#FF6B35]"}`} />
+                      <span className={plan.highlight ? "text-white/90" : "text-gray-300"}>{f}</span>
                     </li>
                   ))}
                 </ul>
 
                 <Link
                   href="/signup"
-                  className={`block w-full text-center py-4 rounded-xl font-bold transition ${
-                    plan.popular
-                      ? 'bg-gradient-to-r from-primary-500 to-orange-600 hover:from-primary-600 hover:to-orange-700 text-white shadow-lg glow-orange-sm'
-                      : 'glass hover:bg-dark-800 text-white'
+                  className={`block text-center py-3 rounded-xl text-sm font-semibold transition ${
+                    plan.highlight
+                      ? "bg-white text-[#FF6B35] hover:bg-gray-100"
+                      : "border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/8 text-white"
                   }`}
                 >
                   {plan.cta}
@@ -374,102 +470,100 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* ── CTA ── */}
       <section className="py-32 px-4 relative overflow-hidden">
-        {/* Background effects */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary-500/5 to-transparent"></div>
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary-500/10 rounded-full blur-3xl"></div>
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-[#FF6B35]/8 rounded-full blur-[100px]" />
         </div>
-        
-        <div className="max-w-4xl mx-auto text-center relative z-10">
-          <h2 className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
-            Ready to Deploy
+        <div className="max-w-3xl mx-auto text-center relative z-10">
+          <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-5">
+            Stop configuring.
             <br />
-            <span className="gradient-text">Your App?</span>
+            <span className="text-[#FF6B35]">Start shipping.</span>
           </h2>
-          <p className="text-xl md:text-2xl text-gray-400 mb-12">
-            Start building in 30 seconds. No credit card required.
+          <p className="text-lg text-gray-400 mb-10">
+            Join thousands of developers who deploy with ZenCloud.
+            Free tier included — no credit card required.
           </p>
-          <Link
-            href="/signup"
-            className="inline-flex items-center space-x-3 bg-gradient-to-r from-primary-500 to-orange-600 hover:from-primary-600 hover:to-orange-700 text-white px-12 py-6 rounded-xl text-xl font-bold transition shadow-2xl animate-glow group"
-          >
-            <span>Start Building Free</span>
-            <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
-          </Link>
-          <div className="mt-8 flex items-center justify-center flex-wrap gap-6 text-sm text-gray-400">
-            <span className="flex items-center space-x-2">
-              <Check className="w-5 h-5 text-green-500" />
-              <span>No credit card required</span>
-            </span>
-            <span className="flex items-center space-x-2">
-              <Check className="w-5 h-5 text-green-500" />
-              <span>2 free projects forever</span>
-            </span>
-            <span className="flex items-center space-x-2">
-              <Check className="w-5 h-5 text-green-500" />
-              <span>30 second setup</span>
-            </span>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              href="/signup"
+              className="flex items-center gap-2 bg-[#FF6B35] hover:bg-[#e85d2a] text-white px-8 py-4 rounded-xl text-base font-semibold transition group"
+            >
+              Deploy your first app free
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+            <Link
+              href="/login"
+              className="flex items-center gap-2 border border-white/10 hover:border-white/20 bg-white/5 text-white px-8 py-4 rounded-xl text-base font-medium transition"
+            >
+              Sign in
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-dark-800 py-12 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <Rocket className="w-6 h-6 text-primary-500" />
-                <span className="text-xl font-bold text-white">ZenCloud</span>
+      {/* ── FOOTER ── */}
+      <footer className="border-t border-white/5 py-14 px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-5 gap-10 mb-12">
+            <div className="md:col-span-2">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 bg-[#FF6B35] rounded-lg flex items-center justify-center">
+                  <Rocket className="w-3.5 h-3.5 text-white" />
+                </div>
+                <span className="font-bold text-lg">ZenCloud</span>
               </div>
-              <p className="text-gray-400 text-sm">
-                Deploy your apps in minutes. No DevOps complexity.
+              <p className="text-sm text-gray-500 leading-relaxed max-w-xs">
+                The deployment platform built for developers who want to ship fast without the ops overhead.
               </p>
             </div>
 
-            <div>
-              <h4 className="text-white font-semibold mb-4">Product</h4>
-              <ul className="space-y-2 text-gray-400 text-sm">
-                <li><a href="#features" className="hover:text-white transition">Features</a></li>
-                <li><a href="#pricing" className="hover:text-white transition">Pricing</a></li>
-                <li><a href="#demo" className="hover:text-white transition">Demo</a></li>
-                <li><a href="#" className="hover:text-white transition">Changelog</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-white font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 text-gray-400 text-sm">
-                <li><a href="#" className="hover:text-white transition">About</a></li>
-                <li><a href="#" className="hover:text-white transition">Blog</a></li>
-                <li><a href="#" className="hover:text-white transition">Careers</a></li>
-                <li><a href="#" className="hover:text-white transition">Contact</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-white font-semibold mb-4">Resources</h4>
-              <ul className="space-y-2 text-gray-400 text-sm">
-                <li><a href="#" className="hover:text-white transition">Documentation</a></li>
-                <li><a href="#" className="hover:text-white transition">API Reference</a></li>
-                <li><a href="#" className="hover:text-white transition">Support</a></li>
-                <li><a href="#" className="hover:text-white transition">Status</a></li>
-              </ul>
-            </div>
+            {[
+              {
+                title: "Product",
+                links: ["Features", "Pricing", "Changelog", "Roadmap"],
+              },
+              {
+                title: "Company",
+                links: ["About", "Blog", "Careers", "Contact"],
+              },
+              {
+                title: "Resources",
+                links: ["Docs", "API Reference", "Support", "Status"],
+              },
+            ].map((col) => (
+              <div key={col.title}>
+                <h4 className="text-xs font-semibold text-white uppercase tracking-wider mb-4">{col.title}</h4>
+                <ul className="space-y-2.5">
+                  {col.links.map((link) => (
+                    <li key={link}>
+                      <a href="#" className="text-sm text-gray-500 hover:text-white transition">{link}</a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
 
-          <div className="border-t border-dark-800 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-gray-400 text-sm">© 2026 ZenCloud. All rights reserved.</p>
-            <div className="flex space-x-6 text-gray-400 text-sm mt-4 md:mt-0">
-              <a href="#" className="hover:text-white transition">Privacy Policy</a>
-              <a href="#" className="hover:text-white transition">Terms of Service</a>
+          <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-xs text-gray-600">© 2026 ZenCloud. All rights reserved.</p>
+            <div className="flex gap-6 text-xs text-gray-600">
+              <a href="#" className="hover:text-white transition">Privacy</a>
+              <a href="#" className="hover:text-white transition">Terms</a>
               <a href="#" className="hover:text-white transition">Security</a>
             </div>
           </div>
         </div>
       </footer>
+
+      {/* Marquee keyframe */}
+      <style jsx>{`
+        @keyframes marquee {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
+        }
+      `}</style>
     </div>
   );
 }
