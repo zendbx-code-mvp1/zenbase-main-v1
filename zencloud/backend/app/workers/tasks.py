@@ -140,11 +140,20 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str 
             env_vars=env_vars
         )
         
+        # Generate deployment URL
+        from app.core.config import settings
+        
+        # Use subdomain-based URL if BASE_DOMAIN is configured, otherwise use localhost
+        if settings.BASE_DOMAIN and settings.BASE_DOMAIN != "zencloud.dev":
+            deployment_url = f"http://{project.subdomain}.{settings.BASE_DOMAIN}"
+        else:
+            deployment_url = f"http://localhost:{port}"
+        
         logs.append(f"✅ Container started: {container_info['container_id'][:12]}")
         logs.append(f"   Status: {container_info['status']}")
         logs.append(f"   Port: {container_info['port']}")
         logs.append(f"\n🎉 Deployment successful!")
-        logs.append(f"   URL: http://localhost:{port}")
+        logs.append(f"   URL: {deployment_url}")
         logs.append(f"   Access your app at the URL above")
         
         # Update database

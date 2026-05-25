@@ -33,6 +33,7 @@ class ProjectResponse(ProjectBase):
     framework: Optional[Framework] = None
     status: ProjectStatus
     container_id: Optional[str] = None
+    deployment_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     

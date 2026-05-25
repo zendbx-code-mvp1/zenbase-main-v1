@@ -49,6 +49,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         api.getProject(params.id),
         api.getDeployments(params.id),
       ]);
+      console.log("Deployments loaded:", deps);
       setProject(proj);
       setDeployments(deps);
     } catch (err: any) {
@@ -338,16 +339,19 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
                         {dep.status || "unknown"}
                       </span>
                     </div>
-                    {dep.build_logs && (
-                      <details className="mt-3">
-                        <summary className="text-xs text-gray-400 cursor-pointer hover:text-white transition">
-                          View build logs
-                        </summary>
-                        <pre className="mt-2 p-3 bg-[#0A0A0A] border border-[#1A1A1A] rounded-lg text-xs text-gray-300 font-mono overflow-auto max-h-[300px] whitespace-pre-wrap">
+                    {dep.build_logs ? (
+                      <div className="mt-3">
+                        <div className="text-xs text-gray-400 mb-2">Build Logs:</div>
+                        <pre className="p-3 bg-[#0A0A0A] border border-[#1A1A1A] rounded-lg text-xs text-gray-300 font-mono overflow-auto max-h-[400px] whitespace-pre-wrap">
                           {dep.build_logs}
                         </pre>
-                      </details>
-                    )}
+                      </div>
+                    ) : dep.status === "pending" || dep.status === "building" ? (
+                      <div className="mt-3 p-3 bg-[#0A0A0A] border border-[#1A1A1A] rounded-lg text-xs text-gray-400 flex items-center gap-2">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Waiting for build logs...
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ))

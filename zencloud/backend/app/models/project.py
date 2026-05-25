@@ -9,11 +9,9 @@ from app.core.database import Base
 class ProjectStatus(str, enum.Enum):
     """Project status enum"""
     ACTIVE = "active"
-    RUNNING = "running"
     STOPPED = "stopped"
     FAILED = "failed"
     BUILDING = "building"
-    DEPLOYING = "deploying"
 
 
 class Framework(str, enum.Enum):
@@ -55,3 +53,22 @@ class Project(Base):
     user = relationship("User", back_populates="projects")
     deployments = relationship("Deployment", back_populates="project", cascade="all, delete-orphan")
     env_vars = relationship("EnvironmentVariable", back_populates="project", cascade="all, delete-orphan")
+    
+    @property
+    def deployment_url(self) -> str:
+        """Generate deployment URL based on configuration"""
+        from app.core.config import settings
+        
+        # Use custom domain if configured
+        if self.custom_domain:
+            return f"http://{self.custom_domain}"
+        
+        # Use subdomain with base domain if configured
+        if settings.BASE_DOMAIN and settings.BASE_DOMAIN != "zencloud.dev":
+            return f"http://{self.subdomain}.{settings.BASE_DOMAIN}"
+        
+        # Fallback to localhost with port
+        if self.port:
+            return f"http://localhost:{self.port}"
+        
+        return "Not deployed"
