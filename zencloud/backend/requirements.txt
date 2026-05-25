@@ -12,10 +12,11 @@ psycopg2-binary==2.9.9
 redis==5.0.1
 celery==5.3.6
 
-# Authentication
+# Authentication & Security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-dotenv==1.0.0
+cryptography==41.0.7
 
 # GitHub Integration
 PyGithub==2.1.1

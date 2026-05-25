@@ -37,6 +37,20 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]
     
+    # PostgreSQL Admin Configuration
+    POSTGRES_ADMIN_HOST: str = "localhost"
+    POSTGRES_ADMIN_PORT: int = 5432
+    POSTGRES_ADMIN_USER: str = "postgres"
+    POSTGRES_ADMIN_PASSWORD: str = "Pawan@121"
+    POSTGRES_ADMIN_DATABASE: str = "postgres"
+    
+    # Database Encryption
+    DATABASE_ENCRYPTION_KEY: str = "your-fernet-key-here-generate-with-Fernet.generate_key()"
+    
+    # Database Limits
+    MAX_DATABASES_PER_USER: int = 5
+    DATABASE_NAME_PREFIX: str = "zencloud"
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

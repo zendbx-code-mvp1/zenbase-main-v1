@@ -19,6 +19,15 @@ from app.schemas.deployment import (
     DeploymentResponse,
     DeploymentTrigger,
 )
+from app.schemas.database import (
+    DatabaseCreate,
+    DatabaseResponse,
+    DatabaseListItem,
+    DatabaseDetail,
+    PasswordResetRequest,
+    PasswordResetResponse,
+    DatabaseDeleteResponse,
+)
 
 __all__ = [
     "UserBase",
@@ -36,4 +45,11 @@ __all__ = [
     "DeploymentCreate",
     "DeploymentResponse",
     "DeploymentTrigger",
+    "DatabaseCreate",
+    "DatabaseResponse",
+    "DatabaseListItem",
+    "DatabaseDetail",
+    "PasswordResetRequest",
+    "PasswordResetResponse",
+    "DatabaseDeleteResponse",
 ]
