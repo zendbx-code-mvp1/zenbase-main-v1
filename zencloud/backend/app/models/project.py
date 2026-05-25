@@ -9,9 +9,11 @@ from app.core.database import Base
 class ProjectStatus(str, enum.Enum):
     """Project status enum"""
     ACTIVE = "active"
+    RUNNING = "running"
     STOPPED = "stopped"
     FAILED = "failed"
     BUILDING = "building"
+    DEPLOYING = "deploying"
 
 
 class Framework(str, enum.Enum):

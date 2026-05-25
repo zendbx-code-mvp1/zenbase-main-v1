@@ -14,6 +14,30 @@ from app.api.auth import get_current_user
 router = APIRouter(prefix="/deployments", tags=["Deployments"])
 
 
+@router.get("/recent", response_model=List[DeploymentResponse])
+async def list_recent_deployments(
+    limit: int = 10,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """List recent deployments across all projects owned by the current user"""
+    # Get all project IDs owned by the user
+    project_ids = [
+        p.id for p in db.query(Project).filter(Project.user_id == current_user.id).all()
+    ]
+    if not project_ids:
+        return []
+
+    deployments = (
+        db.query(Deployment)
+        .filter(Deployment.project_id.in_(project_ids))
+        .order_by(Deployment.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return deployments
+
+
 @router.get("/{deployment_id}", response_model=DeploymentResponse)
 async def get_deployment(
     deployment_id: UUID,

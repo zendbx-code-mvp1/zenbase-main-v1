@@ -37,30 +37,57 @@ async def create_project(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new project"""
+    """Create a new project and immediately trigger a deployment"""
+    from app.models.deployment import Deployment, DeploymentStatus
+    import uuid as uuid_lib
+
     # Generate subdomain
     base_subdomain = generate_subdomain(project_data.name)
     subdomain = base_subdomain
     counter = 1
-    
-    # Ensure subdomain is unique
     while db.query(Project).filter(Project.subdomain == subdomain).first():
         subdomain = f"{base_subdomain}-{counter}"
         counter += 1
-    
-    # Create project
+
+    # Create project with deploying status
     project = Project(
         user_id=current_user.id,
         name=project_data.name,
         repository_url=project_data.repository_url,
         branch=project_data.branch,
-        subdomain=subdomain
+        subdomain=subdomain,
+        status="deploying",
     )
-    
     db.add(project)
     db.commit()
     db.refresh(project)
-    
+
+    # Create initial deployment record
+    deployment = Deployment(
+        id=uuid_lib.uuid4(),
+        project_id=project.id,
+        commit_sha="initial",
+        commit_message=f"Initial deployment of {project_data.name}",
+        status=DeploymentStatus.PENDING,
+    )
+    db.add(deployment)
+    db.commit()
+    db.refresh(deployment)
+
+    # Try to kick off the Celery task; if Celery/Redis isn't available,
+    # mark the deployment as failed gracefully so the project still appears.
+    try:
+        from app.workers.tasks import deploy_project as deploy_task
+        github_token = current_user.github_access_token or None
+        deploy_task.delay(str(project.id), str(deployment.id), github_token)
+    except Exception:
+        # Celery not available (no Redis) — mark deployment failed, project stopped
+        deployment.status = DeploymentStatus.FAILED
+        deployment.build_logs = "Deployment worker unavailable (Redis/Celery not running)."
+        project.status = "stopped"
+        db.commit()
+
+    db.refresh(project)
     return project
 
 
@@ -174,23 +201,28 @@ async def deploy_project(
             status=DeploymentStatus.PENDING
         )
         db.add(deployment)
+        project.status = "deploying"
         db.commit()
         db.refresh(deployment)
-        
-        # Start deployment task (pass None for GitHub token if not connected)
-        github_token = current_user.github_access_token if current_user.github_access_token else None
-        task = deploy_task.delay(
-            str(project.id),
-            str(deployment.id),
-            github_token
-        )
-        
+
+        # Try Celery; fall back gracefully if Redis not available
+        try:
+            github_token = current_user.github_access_token if current_user.github_access_token else None
+            task = deploy_task.delay(str(project.id), str(deployment.id), github_token)
+            task_id = task.id
+        except Exception:
+            deployment.status = DeploymentStatus.FAILED
+            deployment.build_logs = "Deployment worker unavailable (Redis/Celery not running)."
+            project.status = "stopped"
+            db.commit()
+            task_id = None
+
         return {
-            "message": "Deployment started",
+            "message": "Deployment started" if task_id else "Deployment worker unavailable",
             "deployment_id": str(deployment.id),
-            "task_id": task.id
+            "task_id": task_id,
         }
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

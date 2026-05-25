@@ -158,6 +158,10 @@ class ApiClient {
   }
 
   // Deployments
+  async getRecentDeployments(limit: number = 10) {
+    return this.request(`/deployments/recent?limit=${limit}`);
+  }
+
   async getDeployments(projectId: string) {
     return this.request(`/deployments/project/${projectId}`);
   }
