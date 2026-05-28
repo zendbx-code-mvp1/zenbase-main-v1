@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api import auth, projects, github, deployments, databases
+from app.api import auth, projects, github, deployments, databases, monitoring
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -30,6 +30,7 @@ app.include_router(projects.router)
 app.include_router(github.router)
 app.include_router(deployments.router)
 app.include_router(databases.router)
+app.include_router(monitoring.router)
 
 
 @app.get("/")

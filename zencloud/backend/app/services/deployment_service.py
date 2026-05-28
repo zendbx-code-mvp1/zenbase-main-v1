@@ -61,45 +61,35 @@ class DeploymentService:
                 dev_dependencies = package_data.get("devDependencies", {})
                 scripts = package_data.get("scripts", {})
                 
-                # Detect TanStack Start (SSR framework)
-                if "@tanstack/start" in dependencies or "@tanstack/start" in dev_dependencies:
-                    # Check if there's a start:node or preview command
-                    start_cmd = scripts.get("start", scripts.get("preview", "npm run preview"))
-                    
-                    return Framework.NODEJS, {
-                        "build_command": scripts.get("build", "npm run build"),
-                        "start_command": start_cmd,
-                        "port": 3000,
-                        "node_version": "20",
-                        "is_ssr": True,
-                        "is_tanstack": True,
-                        "project_dir": project_dir
-                    }
-                
-                # Detect Next.js
-                if "next" in dependencies or "next" in dev_dependencies:
+                # Check Next.js FIRST (only in dependencies, not devDependencies)
+                if "next" in dependencies:
                     return Framework.NEXTJS, {
                         "build_command": scripts.get("build", "npm run build"),
                         "start_command": scripts.get("start", "npm start"),
                         "port": 3000,
-                        "node_version": "18"
+                        "node_version": "20"
                     }
                 
-                # Detect React (check dependencies AND dev dependencies)
+                # Check TanStack Start
+                if "@tanstack/start" in dependencies or "@tanstack/start" in dev_dependencies:
+                    return Framework.NODEJS, {
+                        "build_command": scripts.get("build", "npm run build"),
+                        "start_command": scripts.get("start", "npm start"),
+                        "port": 3000,
+                        "node_version": "20"
+                    }
+                
+                # Check React (Vite or CRA)
                 if "react" in dependencies or "react" in dev_dependencies:
-                    # Check if it's Vite or CRA
                     is_vite = "vite" in dependencies or "vite" in dev_dependencies
                     build_dir = "dist" if is_vite else "build"
-                    # Use Node 20 for Vite projects (they often require it)
-                    node_version = "20" if is_vite else "18"
                     
                     return Framework.REACT, {
                         "build_command": scripts.get("build", "npm run build"),
                         "start_command": "npx serve -s " + build_dir,
                         "port": 3000,
-                        "node_version": node_version,
-                        "build_dir": build_dir,
-                        "project_dir": project_dir
+                        "node_version": "20",
+                        "build_dir": build_dir
                     }
                 
                 # Generic Node.js
@@ -107,11 +97,10 @@ class DeploymentService:
                     "build_command": scripts.get("build", ""),
                     "start_command": scripts.get("start", "node index.js"),
                     "port": 3000,
-                    "node_version": "18",
-                    "project_dir": project_dir
+                    "node_version": "20"
                 }
         
-        # Check for requirements.txt (Python projects)
+        # Check for requirements.txt (Python)
         requirements = project_path / "requirements.txt"
         if requirements.exists():
             return Framework.PYTHON, {
@@ -121,190 +110,102 @@ class DeploymentService:
                 "python_version": "3.11"
             }
         
-        # Check for index.html (Static sites)
+        # Check for index.html (Static)
         index_html = project_path / "index.html"
         if index_html.exists():
             return Framework.STATIC, {
                 "build_command": "",
                 "start_command": "npx serve .",
                 "port": 3000,
-                "node_version": "18"
+                "node_version": "20"
             }
         
-        # Default to Node.js if nothing detected
+        # Default to Node.js
         return Framework.NODEJS, {
             "build_command": "",
             "start_command": "node index.js",
             "port": 3000,
-            "node_version": "18"
+            "node_version": "20"
         }
     
     def generate_dockerfile(self, framework: Framework, config: Dict) -> str:
         """Generate Dockerfile based on detected framework"""
         
         if framework == Framework.NEXTJS:
-            return f"""FROM node:{config['node_version']}-alpine AS base
-
-# Install dependencies
-FROM base AS deps
+            return f"""FROM node:{config['node_version']}-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-# Build application
-FROM base AS builder
+FROM node:{config['node_version']}-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN if ! grep -q "output.*standalone" next.config.* 2>/dev/null; then \\
+    echo "const nextConfig = {{ output: 'standalone' }}; export default nextConfig;" > next.config.mjs; fi
 RUN npm run build
 
-# Production image
-FROM base AS runner
+FROM node:{config['node_version']}-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV production
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
+ENV NODE_ENV=production
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
 USER nextjs
 EXPOSE {config['port']}
-ENV PORT {config['port']}
-
+ENV PORT={config['port']} HOSTNAME="0.0.0.0"
 CMD ["node", "server.js"]
 """
         
         elif framework == Framework.REACT:
-            # Check if package-lock.json exists
-            project_dir = config.get('project_dir', '.')
-            has_lock = (Path(project_dir) / "package-lock.json").exists()
-            # Use npm install instead of npm ci to handle out-of-sync lock files
-            install_cmd = "npm install" if has_lock else "npm install"
-            
-            # Detect build output directory (Vite uses 'dist', CRA uses 'build')
             build_dir = config.get('build_dir', 'dist')
             
             return f"""FROM node:{config['node_version']}-alpine AS build
-
 WORKDIR /app
 COPY package*.json ./
-RUN {install_cmd}
+RUN npm install
 COPY . .
 RUN npm run build
 
 FROM node:{config['node_version']}-alpine
 WORKDIR /app
 RUN npm install -g serve
-
-# Copy the build output
 COPY --from=build /app/{build_dir} ./{build_dir}
-
 EXPOSE {config['port']}
-
-# Create a startup script to handle different build structures
-RUN echo '#!/bin/sh' > /start.sh && \\
-    echo 'if [ -f "{build_dir}/client/index.html" ]; then' >> /start.sh && \\
-    echo '  echo "Serving from {build_dir}/client"' >> /start.sh && \\
-    echo '  serve -s {build_dir}/client -l {config["port"]}' >> /start.sh && \\
-    echo 'elif [ -f "{build_dir}/index.html" ]; then' >> /start.sh && \\
-    echo '  echo "Serving from {build_dir}"' >> /start.sh && \\
-    echo '  serve -s {build_dir} -l {config["port"]}' >> /start.sh && \\
-    echo 'else' >> /start.sh && \\
-    echo '  echo "No index.html found, listing directory:"' >> /start.sh && \\
-    echo '  ls -la {build_dir}' >> /start.sh && \\
-    echo '  echo "Attempting to serve anyway..."' >> /start.sh && \\
-    echo '  serve -s {build_dir} -l {config["port"]}' >> /start.sh && \\
-    echo 'fi' >> /start.sh && \\
-    chmod +x /start.sh
-
-CMD ["/bin/sh", "/start.sh"]
+CMD ["serve", "-s", "{build_dir}", "-l", "{config['port']}"]
 """
         
         elif framework == Framework.NODEJS:
-            # Check if package-lock.json exists
-            project_dir = config.get('project_dir', '.')
-            has_lock = (Path(project_dir) / "package-lock.json").exists()
-            
-            # For SSR apps, we need all dependencies, not just production
-            is_ssr = config.get('is_ssr', False)
-            install_cmd = "npm ci" if has_lock else "npm install"
-            
-            # Build command if specified
             build_cmd = config.get('build_command', '')
             build_step = f"RUN {build_cmd}" if build_cmd else ""
+            start_cmd = config.get('start_command', 'node index.js')
             
-            # For TanStack Start, we need to check if it's a Workers build
-            # and handle it differently
-            if is_ssr:
-                return f"""FROM node:{config['node_version']}-alpine
-
+            return f"""FROM node:{config['node_version']}-alpine
 WORKDIR /app
 COPY package*.json ./
-RUN {install_cmd}
+RUN npm install
 COPY . .
 {build_step}
-
-# Install a simple HTTP server for serving the app
-RUN npm install -g tsx
-
 EXPOSE {config['port']}
-
-# Try to run the server, fallback to serving static files
-CMD sh -c "if [ -f 'dist/server/index.js' ]; then \\
-    echo 'Running SSR server...'; \\
-    node dist/server/index.js; \\
-elif [ -f '.output/server/index.mjs' ]; then \\
-    echo 'Running Nitro server...'; \\
-    node .output/server/index.mjs; \\
-else \\
-    echo 'No server found, installing serve...'; \\
-    npm install -g serve && \\
-    if [ -d 'dist/client' ]; then \\
-        echo 'Serving from dist/client'; \\
-        serve -s dist/client -l {config['port']}; \\
-    elif [ -d 'dist' ]; then \\
-        echo 'Serving from dist'; \\
-        serve -s dist -l {config['port']}; \\
-    else \\
-        echo 'No build output found'; \\
-        exit 1; \\
-    fi; \\
-fi"
-"""
-            else:
-                return f"""FROM node:{config['node_version']}-alpine
-
-WORKDIR /app
-COPY package*.json ./
-RUN {install_cmd}
-COPY . .
-{build_step}
-
-EXPOSE {config['port']}
-CMD {json.dumps(config['start_command'].split())}
+CMD {json.dumps(start_cmd.split())}
 """
         
         elif framework == Framework.PYTHON:
             return f"""FROM python:{config['python_version']}-slim
-
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-
 EXPOSE {config['port']}
 CMD {json.dumps(config['start_command'].split())}
 """
         
         elif framework == Framework.STATIC:
             return f"""FROM node:{config['node_version']}-alpine
-
 WORKDIR /app
 RUN npm install -g serve
 COPY . .
-
 EXPOSE {config['port']}
 CMD ["serve", ".", "-l", "{config['port']}"]
 """
@@ -315,8 +216,16 @@ CMD ["serve", ".", "-l", "{config['port']}"]
     def build_docker_image(self, project_dir: str, image_name: str, dockerfile_content: str) -> Tuple[bool, str]:
         """Build Docker image from Dockerfile"""
         try:
+            project_path = Path(project_dir)
+            
+            # Create minimal .dockerignore
+            dockerignore_path = project_path / ".dockerignore"
+            if not dockerignore_path.exists():
+                with open(dockerignore_path, "w") as f:
+                    f.write("node_modules\n.git\n.env\n*.log\n.DS_Store\n")
+            
             # Write Dockerfile
-            dockerfile_path = Path(project_dir) / "Dockerfile"
+            dockerfile_path = project_path / "Dockerfile"
             with open(dockerfile_path, "w") as f:
                 f.write(dockerfile_content)
             
@@ -326,7 +235,7 @@ CMD ["serve", ".", "-l", "{config['port']}"]
                 cwd=project_dir,
                 capture_output=True,
                 text=True,
-                timeout=600  # 10 minute timeout
+                timeout=600
             )
             
             if result.returncode != 0:
@@ -335,7 +244,7 @@ CMD ["serve", ".", "-l", "{config['port']}"]
             return True, result.stdout
             
         except subprocess.TimeoutExpired:
-            return False, "Docker build timed out after 10 minutes"
+            return False, "Docker build timed out"
         except Exception as e:
             return False, f"Build failed: {str(e)}"
     

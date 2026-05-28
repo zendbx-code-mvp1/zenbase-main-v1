@@ -41,56 +41,39 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str 
         if not project or not deployment:
             raise Exception("Project or deployment not found")
         
-        # Update status
+        # Update status to building
         deployment.status = DeploymentStatus.BUILDING
         project.status = ProjectStatus.BUILDING
         db.commit()
         
         logs = []
         
-        # Step 1: Clone repository
+        # Clone repository
         logs.append("📦 Cloning repository...")
-        deployment.build_logs = "\n".join(logs)
-        db.commit()
-        
         project_dir = deployment_service.clone_repository(
             project.repository_url,
             project.branch,
-            access_token  # Can be None for public repos
+            access_token
         )
-        logs.append(f"✅ Repository cloned to {project_dir}")
-        deployment.build_logs = "\n".join(logs)
-        db.commit()
+        logs.append(f"✅ Repository cloned")
         
-        # Step 2: Detect framework
+        # Detect framework
         logs.append("🔍 Detecting framework...")
-        deployment.build_logs = "\n".join(logs)
-        db.commit()
-        
         framework, config = deployment_service.detect_framework(project_dir)
         project.framework = framework
-        logs.append(f"✅ Detected framework: {framework.value}")
-        logs.append(f"   Build command: {config.get('build_command', 'N/A')}")
-        logs.append(f"   Start command: {config.get('start_command', 'N/A')}")
-        logs.append(f"   Port: {config.get('port', 'N/A')}")
-        deployment.build_logs = "\n".join(logs)
-        db.commit()
+        logs.append(f"✅ Detected: {framework.value}")
         
-        # Step 3: Generate Dockerfile
+        # Generate Dockerfile
         logs.append("📝 Generating Dockerfile...")
-        deployment.build_logs = "\n".join(logs)
-        db.commit()
-        
         dockerfile = deployment_service.generate_dockerfile(framework, config)
         logs.append("✅ Dockerfile generated")
+        
+        # Update logs before long build
         deployment.build_logs = "\n".join(logs)
         db.commit()
         
-        # Step 4: Build Docker image
+        # Build Docker image
         logs.append("🔨 Building Docker image...")
-        deployment.build_logs = "\n".join(logs)
-        db.commit()
-        
         image_name = f"zencloud-{project.subdomain}:latest"
         success, build_output = deployment_service.build_docker_image(
             project_dir,
@@ -107,32 +90,18 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str 
             deployment_service.cleanup(project_dir)
             return
         
-        logs.append("✅ Docker image built successfully")
-        deployment.build_logs = "\n".join(logs)
-        db.commit()
+        logs.append("✅ Image built")
         
-        # Step 5: Get environment variables
-        env_vars = {}
-        for env_var in project.env_vars:
-            env_vars[env_var.key] = env_var.value  # TODO: Decrypt
+        # Get environment variables
+        env_vars = {env_var.key: env_var.value for env_var in project.env_vars}
         
-        # Step 6: Allocate port
-        logs.append("🔌 Allocating port...")
-        deployment.build_logs = "\n".join(logs)
-        db.commit()
-        
-        # Get used ports from other projects
+        # Allocate port
         used_ports = [int(p.port) for p in db.query(Project).filter(Project.port.isnot(None)).all()]
         port = docker_service.allocate_port(used_ports)
-        logs.append(f"✅ Allocated port: {port}")
-        deployment.build_logs = "\n".join(logs)
-        db.commit()
+        logs.append(f"✅ Port allocated: {port}")
         
-        # Step 7: Create and start container
+        # Start container
         logs.append("🚀 Starting container...")
-        deployment.build_logs = "\n".join(logs)
-        db.commit()
-        
         container_info = docker_service.create_container(
             image_name=image_name,
             container_name=f"zencloud-{project.subdomain}",
@@ -140,31 +109,24 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str 
             env_vars=env_vars
         )
         
-        # Generate deployment URL
+        # Generate URL
         from app.core.config import settings
-        
-        # Use subdomain-based URL if BASE_DOMAIN is configured, otherwise use localhost
         if settings.BASE_DOMAIN and settings.BASE_DOMAIN != "zencloud.dev":
             deployment_url = f"http://{project.subdomain}.{settings.BASE_DOMAIN}"
         else:
             deployment_url = f"http://localhost:{port}"
         
         logs.append(f"✅ Container started: {container_info['container_id'][:12]}")
-        logs.append(f"   Status: {container_info['status']}")
-        logs.append(f"   Port: {container_info['port']}")
         logs.append(f"\n🎉 Deployment successful!")
         logs.append(f"   URL: {deployment_url}")
-        logs.append(f"   Access your app at the URL above")
         
-        # Update database
+        # Final database update
         deployment.build_logs = "\n".join(logs)
         deployment.status = DeploymentStatus.SUCCESS
         deployment.container_id = container_info['container_id']
-        
         project.status = ProjectStatus.ACTIVE
         project.container_id = container_info['container_id']
         project.port = str(port)
-        
         db.commit()
         
         # Cleanup

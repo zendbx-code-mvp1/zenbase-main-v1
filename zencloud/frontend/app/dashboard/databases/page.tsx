@@ -59,6 +59,19 @@ export default function DatabasesPage() {
         setDatabases(data);
       } else if (response.status === 401) {
         setError("Authentication failed. Please login again.");
+      } else {
+        const errorData = await response.json();
+        // Handle Pydantic validation errors
+        if (Array.isArray(errorData.detail)) {
+          const errorMessages = errorData.detail.map((err: any) => 
+            `${err.loc?.join('.') || 'Field'}: ${err.msg}`
+          ).join(', ');
+          setError(errorMessages);
+        } else if (typeof errorData.detail === 'string') {
+          setError(errorData.detail);
+        } else {
+          setError("Failed to fetch databases");
+        }
       }
     } catch (err) {
       console.error("Failed to fetch databases:", err);
@@ -116,7 +129,19 @@ export default function DatabasesPage() {
         fetchDatabases();
       } else {
         const errorData = await response.json();
-        setError(errorData.detail || "Failed to create database");
+        // Handle Pydantic validation errors (array of error objects)
+        if (Array.isArray(errorData.detail)) {
+          const errorMessages = errorData.detail.map((err: any) => 
+            `${err.loc?.join('.') || 'Field'}: ${err.msg}`
+          ).join(', ');
+          setError(errorMessages);
+        } else if (typeof errorData.detail === 'string') {
+          setError(errorData.detail);
+        } else if (typeof errorData.detail === 'object') {
+          setError(JSON.stringify(errorData.detail));
+        } else {
+          setError("Failed to create database");
+        }
       }
     } catch (err) {
       setError("Failed to create database");
@@ -163,12 +188,23 @@ export default function DatabasesPage() {
       });
 
       if (response.ok) {
+        const data = await response.json();
         setSuccess("Database deleted successfully");
         fetchDatabases();
         setShowDetailModal(false);
       } else {
         const errorData = await response.json();
-        setError(errorData.detail || "Failed to delete database");
+        // Handle Pydantic validation errors
+        if (Array.isArray(errorData.detail)) {
+          const errorMessages = errorData.detail.map((err: any) => 
+            `${err.loc?.join('.') || 'Field'}: ${err.msg}`
+          ).join(', ');
+          setError(errorMessages);
+        } else if (typeof errorData.detail === 'string') {
+          setError(errorData.detail);
+        } else {
+          setError("Failed to delete database");
+        }
       }
     } catch (err) {
       setError("Failed to delete database");
@@ -197,7 +233,17 @@ export default function DatabasesPage() {
         viewDatabaseDetails(databaseId);
       } else {
         const errorData = await response.json();
-        setError(errorData.detail || "Failed to reset password");
+        // Handle Pydantic validation errors
+        if (Array.isArray(errorData.detail)) {
+          const errorMessages = errorData.detail.map((err: any) => 
+            `${err.loc?.join('.') || 'Field'}: ${err.msg}`
+          ).join(', ');
+          setError(errorMessages);
+        } else if (typeof errorData.detail === 'string') {
+          setError(errorData.detail);
+        } else {
+          setError("Failed to reset password");
+        }
       }
     } catch (err) {
       setError("Failed to reset password");

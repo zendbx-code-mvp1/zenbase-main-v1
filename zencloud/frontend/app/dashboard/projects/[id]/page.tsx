@@ -10,8 +10,10 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import RealTimeMonitor from "@/components/RealTimeMonitor";
+import RealTimeLogs from "@/components/RealTimeLogs";
 
-type Tab = "deployments" | "logs" | "settings";
+type Tab = "overview" | "deployments" | "logs" | "settings";
 
 export default function ProjectDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -22,14 +24,20 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState("");
-  const [activeTab, setActiveTab] = useState<Tab>("deployments");
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [token, setToken] = useState<string>("");
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login");
       return;
     }
-    if (user) loadData();
+    if (user) {
+      loadData();
+      // Get token from localStorage for WebSocket
+      const storedToken = localStorage.getItem("token");
+      if (storedToken) setToken(storedToken);
+    }
   }, [user, authLoading]);
 
   // Auto-refresh deployments every 3 seconds when on deployments tab
@@ -281,7 +289,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         {/* Tabs */}
         <div className="border-b border-[#1E1E1E] mb-6">
           <div className="flex gap-1">
-            {(["deployments", "logs", "settings"] as Tab[]).map((tab) => (
+            {(["overview", "deployments", "logs", "settings"] as Tab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => handleTabChange(tab)}
@@ -298,6 +306,36 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         </div>
 
         {/* Tab Content */}
+        {activeTab === "overview" && project?.container_id && (project?.status === "running" || project?.status === "active") && (
+          <div className="space-y-6">
+            <RealTimeMonitor projectId={params.id} token={token} containerStatus={project.status} />
+            <RealTimeLogs projectId={params.id} token={token} containerStatus={project.status} />
+          </div>
+        )}
+
+        {activeTab === "overview" && (!project?.container_id || (project?.status !== "running" && project?.status !== "active")) && (
+          <div className="text-center py-16 bg-[#0F0F0F] border border-[#1A1A1A] rounded-xl">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-[#1A1A1A] rounded-full mb-4">
+              <Play className="w-6 h-6 text-gray-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">
+              {!project?.container_id ? "No container deployed" : "Container not running"}
+            </h3>
+            <p className="text-gray-400 mb-4">
+              {!project?.container_id 
+                ? "Deploy the project to see real-time monitoring" 
+                : "Start the container to see real-time monitoring"}
+            </p>
+            <button
+              onClick={() => handleAction(!project?.container_id ? "deploy" : "start")}
+              className="inline-flex items-center gap-2 bg-[#FF6B35] hover:bg-[#FF5722] text-white px-5 py-2.5 rounded-lg font-medium transition"
+            >
+              <Play className="w-4 h-4" />
+              {!project?.container_id ? "Deploy Now" : "Start Container"}
+            </button>
+          </div>
+        )}
+
         {activeTab === "deployments" && (
           <div className="space-y-3">
             {deployments.length === 0 ? (

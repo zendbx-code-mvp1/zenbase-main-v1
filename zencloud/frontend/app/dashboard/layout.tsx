@@ -62,11 +62,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           <div className="pt-4">
             <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest px-3 mb-2">Monitor</p>
-            <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition">
+            <Link href="/dashboard/activity" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition">
               <Activity className="w-4 h-4 shrink-0" />
               Activity
             </Link>
-            <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition">
+            <Link href="/dashboard/resources" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition">
               <Cpu className="w-4 h-4 shrink-0" />
               Resources
             </Link>

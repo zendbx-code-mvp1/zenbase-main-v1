@@ -65,6 +65,7 @@ services:
       DATABASE_URL: postgresql://zencloud:zencloud@postgres:5432/zencloud
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: dev-secret-key-change-in-production
+      DOCKER_HOST: unix:///var/run/docker.sock
     depends_on:
       postgres:
         condition: service_healthy

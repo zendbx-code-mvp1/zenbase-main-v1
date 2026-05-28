@@ -222,9 +222,9 @@ async def deploy_project(
         
         logger.info(f"Task sent to Celery with ID: {task.id}")
         return {
-            "message": "Deployment started" if task_id else "Deployment worker unavailable",
+            "message": "Deployment started",
             "deployment_id": str(deployment.id),
-            "task_id": task_id,
+            "task_id": str(task.id),
         }
 
     except Exception as e:

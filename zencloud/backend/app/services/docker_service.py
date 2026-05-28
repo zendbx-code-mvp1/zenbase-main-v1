@@ -1,19 +1,27 @@
-"""Docker container management service"""
-import docker
-from docker.errors import DockerException, NotFound, APIError
+"""Docker container management service using CLI"""
+import subprocess
+import json
 from typing import Dict, Optional, List
 import random
 
 
 class DockerService:
-    """Service for managing Docker containers"""
+    """Service for managing Docker containers using CLI"""
     
     def __init__(self):
         try:
-            self.client = docker.from_env()
-            # Test connection
-            self.client.ping()
-        except DockerException as e:
+            # Test Docker CLI is available
+            result = subprocess.run(
+                ["docker", "version", "--format", "{{.Server.Version}}"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode != 0:
+                raise Exception(f"Docker CLI not available: {result.stderr}")
+        except FileNotFoundError:
+            raise Exception("Docker CLI not found in PATH")
+        except Exception as e:
             raise Exception(f"Failed to connect to Docker: {str(e)}")
     
     def allocate_port(self, used_ports: List[int] = None) -> int:
@@ -34,148 +42,242 @@ class DockerService:
         port: int,
         env_vars: Dict[str, str] = None
     ) -> Dict:
-        """Create and start a Docker container"""
+        """Create and start a Docker container using CLI"""
         try:
             # Remove existing container with same name
-            try:
-                old_container = self.client.containers.get(container_name)
-                old_container.stop()
-                old_container.remove()
-            except NotFound:
-                pass
-            
-            # Create container
-            container = self.client.containers.run(
-                image=image_name,
-                name=container_name,
-                ports={'3000/tcp': port},  # Map container port to host port
-                environment=env_vars or {},
-                detach=True,
-                restart_policy={"Name": "unless-stopped"},
-                mem_limit="512m",  # 512MB RAM limit
-                cpu_quota=50000,  # 50% CPU limit
+            subprocess.run(
+                ["docker", "rm", "-f", container_name],
+                capture_output=True,
+                timeout=30
             )
             
+            # Build docker run command
+            cmd = [
+                "docker", "run",
+                "-d",  # Detached
+                "--name", container_name,
+                "-p", f"{port}:3000",  # Port mapping
+                "--restart", "unless-stopped",
+                "--memory", "512m",  # Memory limit
+                "--cpus", "0.5",  # CPU limit
+            ]
+            
+            # Add environment variables
+            if env_vars:
+                for key, value in env_vars.items():
+                    cmd.extend(["-e", f"{key}={value}"])
+            
+            # Add image name
+            cmd.append(image_name)
+            
+            # Run container
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            
+            if result.returncode != 0:
+                raise Exception(f"Failed to create container: {result.stderr}")
+            
+            container_id = result.stdout.strip()
+            
+            # Get container status
+            inspect_result = subprocess.run(
+                ["docker", "inspect", container_id, "--format", "{{.State.Status}}"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            status = inspect_result.stdout.strip() if inspect_result.returncode == 0 else "unknown"
+            
             return {
-                "container_id": container.id,
-                "container_name": container.name,
-                "status": container.status,
+                "container_id": container_id,
+                "container_name": container_name,
+                "status": status,
                 "port": port
             }
             
-        except APIError as e:
-            raise Exception(f"Failed to create container: {str(e)}")
+        except subprocess.TimeoutExpired:
+            raise Exception("Container creation timed out")
         except Exception as e:
             raise Exception(f"Container creation error: {str(e)}")
     
     def start_container(self, container_id: str) -> bool:
         """Start a stopped container"""
         try:
-            container = self.client.containers.get(container_id)
-            container.start()
+            result = subprocess.run(
+                ["docker", "start", container_id],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode != 0:
+                raise Exception(f"Failed to start container: {result.stderr}")
             return True
-        except NotFound:
-            raise Exception(f"Container {container_id} not found")
-        except APIError as e:
+        except subprocess.TimeoutExpired:
+            raise Exception("Start container timed out")
+        except Exception as e:
             raise Exception(f"Failed to start container: {str(e)}")
     
     def stop_container(self, container_id: str) -> bool:
         """Stop a running container"""
         try:
-            container = self.client.containers.get(container_id)
-            container.stop(timeout=10)
+            result = subprocess.run(
+                ["docker", "stop", "-t", "10", container_id],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode != 0:
+                raise Exception(f"Failed to stop container: {result.stderr}")
             return True
-        except NotFound:
-            raise Exception(f"Container {container_id} not found")
-        except APIError as e:
+        except subprocess.TimeoutExpired:
+            raise Exception("Stop container timed out")
+        except Exception as e:
             raise Exception(f"Failed to stop container: {str(e)}")
     
     def restart_container(self, container_id: str) -> bool:
         """Restart a container"""
         try:
-            container = self.client.containers.get(container_id)
-            container.restart(timeout=10)
+            result = subprocess.run(
+                ["docker", "restart", "-t", "10", container_id],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode != 0:
+                raise Exception(f"Failed to restart container: {result.stderr}")
             return True
-        except NotFound:
-            raise Exception(f"Container {container_id} not found")
-        except APIError as e:
+        except subprocess.TimeoutExpired:
+            raise Exception("Restart container timed out")
+        except Exception as e:
             raise Exception(f"Failed to restart container: {str(e)}")
     
     def delete_container(self, container_id: str) -> bool:
         """Delete a container"""
         try:
-            container = self.client.containers.get(container_id)
-            container.stop(timeout=10)
-            container.remove()
+            result = subprocess.run(
+                ["docker", "rm", "-f", container_id],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode != 0:
+                raise Exception(f"Failed to delete container: {result.stderr}")
             return True
-        except NotFound:
-            raise Exception(f"Container {container_id} not found")
-        except APIError as e:
+        except subprocess.TimeoutExpired:
+            raise Exception("Delete container timed out")
+        except Exception as e:
             raise Exception(f"Failed to delete container: {str(e)}")
     
     def get_container_status(self, container_id: str) -> Dict:
         """Get container status and stats"""
         try:
-            container = self.client.containers.get(container_id)
-            stats = container.stats(stream=False)
+            # Get container stats
+            result = subprocess.run(
+                ["docker", "stats", container_id, "--no-stream", "--format", "{{json .}}"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
             
-            # Calculate CPU percentage
-            cpu_delta = stats['cpu_stats']['cpu_usage']['total_usage'] - \
-                       stats['precpu_stats']['cpu_usage']['total_usage']
-            system_delta = stats['cpu_stats']['system_cpu_usage'] - \
-                          stats['precpu_stats']['system_cpu_usage']
-            cpu_percent = (cpu_delta / system_delta) * 100.0 if system_delta > 0 else 0.0
+            if result.returncode != 0:
+                raise Exception(f"Container not found: {result.stderr}")
             
-            # Calculate memory usage
-            memory_usage = stats['memory_stats']['usage']
-            memory_limit = stats['memory_stats']['limit']
-            memory_percent = (memory_usage / memory_limit) * 100.0 if memory_limit > 0 else 0.0
+            stats = json.loads(result.stdout.strip())
+            
+            # Parse CPU and memory
+            cpu_percent = float(stats.get("CPUPerc", "0%").rstrip("%"))
+            mem_usage = stats.get("MemUsage", "0B / 0B").split(" / ")[0]
+            mem_limit = stats.get("MemUsage", "0B / 0B").split(" / ")[1]
+            mem_percent = float(stats.get("MemPerc", "0%").rstrip("%"))
+            
+            # Get status
+            status_result = subprocess.run(
+                ["docker", "inspect", container_id, "--format", "{{.State.Status}}"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            status = status_result.stdout.strip() if status_result.returncode == 0 else "unknown"
             
             return {
-                "status": container.status,
+                "status": status,
                 "cpu_percent": round(cpu_percent, 2),
-                "memory_usage_mb": round(memory_usage / (1024 * 1024), 2),
-                "memory_limit_mb": round(memory_limit / (1024 * 1024), 2),
-                "memory_percent": round(memory_percent, 2)
+                "memory_usage_mb": mem_usage,
+                "memory_limit_mb": mem_limit,
+                "memory_percent": round(mem_percent, 2)
             }
-        except NotFound:
-            raise Exception(f"Container {container_id} not found")
+        except subprocess.TimeoutExpired:
+            raise Exception("Get container status timed out")
         except Exception as e:
             raise Exception(f"Failed to get container status: {str(e)}")
     
     def get_container_logs(self, container_id: str, tail: int = 100) -> str:
         """Get container logs"""
         try:
-            container = self.client.containers.get(container_id)
-            logs = container.logs(tail=tail, timestamps=True)
-            return logs.decode('utf-8')
-        except NotFound:
-            raise Exception(f"Container {container_id} not found")
+            result = subprocess.run(
+                ["docker", "logs", "--tail", str(tail), "--timestamps", container_id],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode != 0:
+                raise Exception(f"Failed to get logs: {result.stderr}")
+            return result.stdout
+        except subprocess.TimeoutExpired:
+            raise Exception("Get logs timed out")
         except Exception as e:
             raise Exception(f"Failed to get logs: {str(e)}")
     
     def list_containers(self, all_containers: bool = False) -> List[Dict]:
         """List all containers"""
         try:
-            containers = self.client.containers.list(all=all_containers)
-            return [
-                {
-                    "id": c.id,
-                    "name": c.name,
-                    "status": c.status,
-                    "image": c.image.tags[0] if c.image.tags else "unknown"
-                }
-                for c in containers
-            ]
+            cmd = ["docker", "ps", "--format", "{{json .}}"]
+            if all_containers:
+                cmd.insert(2, "-a")
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            if result.returncode != 0:
+                raise Exception(f"Failed to list containers: {result.stderr}")
+            
+            containers = []
+            for line in result.stdout.strip().split("\n"):
+                if line:
+                    container = json.loads(line)
+                    containers.append({
+                        "id": container.get("ID", ""),
+                        "name": container.get("Names", ""),
+                        "status": container.get("Status", ""),
+                        "image": container.get("Image", "")
+                    })
+            
+            return containers
+        except subprocess.TimeoutExpired:
+            raise Exception("List containers timed out")
         except Exception as e:
             raise Exception(f"Failed to list containers: {str(e)}")
     
     def remove_image(self, image_name: str) -> bool:
         """Remove Docker image"""
         try:
-            self.client.images.remove(image_name, force=True)
-            return True
-        except NotFound:
-            return False
+            result = subprocess.run(
+                ["docker", "rmi", "-f", image_name],
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            return result.returncode == 0
+        except subprocess.TimeoutExpired:
+            raise Exception("Remove image timed out")
         except Exception as e:
             raise Exception(f"Failed to remove image: {str(e)}")
