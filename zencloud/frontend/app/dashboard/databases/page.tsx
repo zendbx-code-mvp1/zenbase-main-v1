@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card } from "@/components/Card";
-import { Button } from "@/components/Button";
+import { Database, Plus, Copy, Trash2, RefreshCw, X, CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
 
 interface Database {
   id: string;
@@ -280,12 +279,13 @@ export default function DatabasesPage() {
             <h1 className="text-3xl font-bold text-white">Databases</h1>
             <p className="text-gray-400 mt-2">Manage your PostgreSQL databases</p>
           </div>
-          <Button 
+          <button
             onClick={() => setShowCreateModal(true)}
-            className="bg-[#FF6B35] hover:bg-[#ff5722] text-white px-6 py-2 rounded-lg font-medium transition"
+            className="flex items-center gap-2 bg-[#FF6B35] hover:bg-[#e85d2a] text-white px-4 py-2 rounded-lg text-sm font-semibold transition"
           >
-            + Create Database
-          </Button>
+            <Plus className="w-4 h-4" />
+            Create Database
+          </button>
         </div>
 
         {/* Alerts */}

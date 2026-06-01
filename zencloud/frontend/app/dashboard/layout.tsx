@@ -12,6 +12,7 @@ import {
 const NAV = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Overview" },
   { href: "/dashboard/projects", icon: FolderGit2, label: "Projects" },
+  { href: "/dashboard/domains", icon: Globe, label: "Domains" },
   { href: "/dashboard/databases", icon: Database, label: "Databases" },
   { href: "/dashboard/settings", icon: Settings, label: "Settings" },
 ];
@@ -70,7 +71,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Cpu className="w-4 h-4 shrink-0" />
               Resources
             </Link>
-            <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition">
+            <Link href="/dashboard/domains" className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition ${pathname.startsWith('/dashboard/domains') ? 'bg-[#FF6B35]/10 text-[#FF6B35] font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
               <Globe className="w-4 h-4 shrink-0" />
               Domains
             </Link>
