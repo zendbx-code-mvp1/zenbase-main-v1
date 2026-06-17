@@ -8,18 +8,9 @@ from app.models import User, Project
 from app.models.project import ProjectStatus
 from app.schemas import ProjectCreate, ProjectUpdate, ProjectResponse
 from app.api.auth import get_current_user
-import re
+from app.services.reverse_proxy_service import ReverseProxyService
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
-
-
-def generate_subdomain(name: str) -> str:
-    """Generate subdomain from project name"""
-    # Convert to lowercase and replace spaces/special chars with hyphens
-    subdomain = re.sub(r'[^a-z0-9-]', '-', name.lower())
-    subdomain = re.sub(r'-+', '-', subdomain)  # Remove multiple hyphens
-    subdomain = subdomain.strip('-')  # Remove leading/trailing hyphens
-    return subdomain
 
 
 @router.get("/", response_model=List[ProjectResponse])
@@ -41,13 +32,20 @@ async def create_project(
     """Create a new project and immediately trigger a deployment"""
     from app.models.deployment import Deployment, DeploymentStatus
     import uuid as uuid_lib
+    import re
 
-    # Generate subdomain
-    base_subdomain = generate_subdomain(project_data.name)
-    subdomain = base_subdomain
+    # Build a URL-safe slug from the project name
+    def slugify(name: str) -> str:
+        slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+        return re.sub(r"-{2,}", "-", slug)[:63]
+
+    base = slugify(project_data.name) or "project"
+
+    # Guarantee uniqueness against the DB (source of truth)
+    subdomain = base
     counter = 1
     while db.query(Project).filter(Project.subdomain == subdomain).first():
-        subdomain = f"{base_subdomain}-{counter}"
+        subdomain = f"{base}-{counter}"
         counter += 1
 
     # Create project with deploying status
@@ -164,9 +162,15 @@ async def delete_project(
             detail="Project not found"
         )
     
+    # Remove Nginx config if it exists
+    try:
+        ReverseProxyService().delete_project_config(project)
+    except Exception:
+        pass  # Don't block deletion if proxy cleanup fails
+
     db.delete(project)
     db.commit()
-    
+
     return None
 
 

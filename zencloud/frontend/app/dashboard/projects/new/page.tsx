@@ -143,7 +143,7 @@ export default function NewProjectPage() {
                 className="w-full bg-[#1a1a20] border border-white/8 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6B35]/60 transition"
               />
               <p className="text-[10px] text-gray-600 mt-1">
-                Used as your subdomain: <span className="text-gray-400">{name ? name.toLowerCase().replace(/[^a-z0-9-]/g, "-") : "your-name"}.zencloud.dev</span>
+                Subdomain: <span className="text-gray-400 font-mono">{name ? name.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "your-name" : "your-name"}.zenbase.dev</span>
               </p>
             </div>
           </div>

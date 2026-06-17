@@ -34,21 +34,41 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
     }
     if (user) {
       loadData();
-      // Get token from localStorage for WebSocket
       const storedToken = localStorage.getItem("token");
       if (storedToken) setToken(storedToken);
     }
   }, [user, authLoading]);
 
-  // Auto-refresh deployments every 3 seconds when on deployments tab
+  // Poll project status + deployments every 2s while building/deploying
+  // Also polls on deployments tab regardless of status
   useEffect(() => {
-    if (activeTab === "deployments" && project) {
-      const interval = setInterval(() => {
-        api.getDeployments(params.id).then(setDeployments).catch(() => {});
-      }, 3000);
-      return () => clearInterval(interval);
+    const isBuilding = project?.status === "building" || project?.status === "deploying";
+    const shouldPoll = isBuilding || activeTab === "deployments";
+    if (!shouldPoll || !project) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const [proj, deps] = await Promise.all([
+          api.getProject(params.id),
+          api.getDeployments(params.id),
+        ]);
+        setProject(proj);
+        setDeployments(deps);
+      } catch {}
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, project?.status, project?.id, params.id]);
+
+  // Auto-switch to deployments tab when a build starts
+  useEffect(() => {
+    if (
+      (project?.status === "building" || project?.status === "deploying") &&
+      activeTab === "overview"
+    ) {
+      setActiveTab("deployments");
     }
-  }, [activeTab, project, params.id]);
+  }, [project?.status]);
 
   const loadData = async () => {
     try {
@@ -269,7 +289,17 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
             </div>
             <div>
               <div className="text-gray-500 mb-1">URL</div>
-              {project?.port ? (
+              {project?.deployment_url && project.deployment_url !== "Not deployed" ? (
+                <a
+                  href={project.deployment_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#FF6B35] hover:text-[#FF5722] transition flex items-center gap-1 font-medium text-sm break-all"
+                >
+                  {project.deployment_url.replace(/^https?:\/\//, "")}
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                </a>
+              ) : project?.port ? (
                 <a
                   href={`http://localhost:${project.port}`}
                   target="_blank"
@@ -281,6 +311,11 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
                 </a>
               ) : (
                 <span className="text-gray-500">Deploy to get URL</span>
+              )}
+              {project?.subdomain && (
+                <div className="text-xs text-gray-600 mt-0.5 font-mono">
+                  {project.subdomain}.zenbase.dev
+                </div>
               )}
             </div>
           </div>
@@ -354,45 +389,50 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
                 </button>
               </div>
             ) : (
-              deployments.map((dep, i) => (
-                <div key={dep.id || i} className="bg-[#0F0F0F] border border-[#1A1A1A] rounded-xl overflow-hidden hover:border-[#2A2A2A] transition">
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-4">
+              deployments.map((dep, i) => {
+                const isActive = dep.status === "pending" || dep.status === "building";
+                return (
+                  <div key={dep.id || i} className={`bg-[#0F0F0F] border rounded-xl overflow-hidden transition ${isActive ? "border-blue-500/30" : "border-[#1A1A1A] hover:border-[#2A2A2A]"}`}>
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-2">
                         <div>
-                          <div className="text-white text-sm font-medium mb-1">
+                          <div className="text-white text-sm font-medium mb-1 flex items-center gap-2">
+                            {isActive && <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin" />}
                             {dep.commit_message || `Deployment #${deployments.length - i}`}
                           </div>
                           <div className="text-gray-500 text-xs flex items-center gap-3">
-                            {dep.commit_sha && (
-                              <span className="font-mono">{dep.commit_sha.slice(0, 7)}</span>
-                            )}
-                            {dep.created_at && (
-                              <span>{new Date(dep.created_at).toLocaleString()}</span>
-                            )}
+                            {dep.commit_sha && <span className="font-mono">{dep.commit_sha.slice(0, 7)}</span>}
+                            {dep.created_at && <span>{new Date(dep.created_at).toLocaleString()}</span>}
                           </div>
                         </div>
+                        <span className={`text-sm font-medium capitalize ${getDeployStatusColor(dep.status)}`}>
+                          {isActive ? (
+                            <span className="flex items-center gap-1.5 text-blue-400">
+                              <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
+                              {dep.status}
+                            </span>
+                          ) : dep.status}
+                        </span>
                       </div>
-                      <span className={`text-sm font-medium capitalize ${getDeployStatusColor(dep.status)}`}>
-                        {dep.status || "unknown"}
-                      </span>
-                    </div>
-                    {dep.build_logs ? (
+
+                      {/* Build logs */}
                       <div className="mt-3">
-                        <div className="text-xs text-gray-400 mb-2">Build Logs:</div>
-                        <pre className="p-3 bg-[#0A0A0A] border border-[#1A1A1A] rounded-lg text-xs text-gray-300 font-mono overflow-auto max-h-[400px] whitespace-pre-wrap">
-                          {dep.build_logs}
+                        <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+                          <span>Build output</span>
+                          {isActive && <span className="text-blue-400 animate-pulse">● live</span>}
+                        </div>
+                        <pre className={`p-3 bg-[#0A0A0A] border rounded-lg text-xs font-mono overflow-auto max-h-96 whitespace-pre-wrap ${isActive ? "border-blue-500/20 text-blue-100" : "border-[#1A1A1A] text-gray-300"}`}>
+                          {dep.build_logs
+                            ? dep.build_logs
+                            : isActive
+                            ? "⏳ Build starting, logs will appear here shortly..."
+                            : "No build output recorded."}
                         </pre>
                       </div>
-                    ) : dep.status === "pending" || dep.status === "building" ? (
-                      <div className="mt-3 p-3 bg-[#0A0A0A] border border-[#1A1A1A] rounded-lg text-xs text-gray-400 flex items-center gap-2">
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        Waiting for build logs...
-                      </div>
-                    ) : null}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}

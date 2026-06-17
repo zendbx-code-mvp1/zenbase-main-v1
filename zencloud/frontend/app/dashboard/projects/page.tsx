@@ -198,6 +198,18 @@ export default function ProjectsPage() {
                           ? new Date(project.updated_at).toLocaleString()
                           : "Never deployed"}
                       </span>
+                      {project.deployment_url && project.deployment_url !== "Not deployed" && (
+                        <a
+                          href={project.deployment_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1 text-[#FF6B35] hover:text-[#FF5722] transition font-mono text-xs"
+                        >
+                          {project.deployment_url.replace(/^https?:\/\//, "")}
+                          <Activity className="w-3 h-3" />
+                        </a>
+                      )}
                     </div>
                   </div>
 

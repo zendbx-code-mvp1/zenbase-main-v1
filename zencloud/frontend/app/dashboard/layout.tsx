@@ -63,18 +63,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           <div className="pt-4">
             <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest px-3 mb-2">Monitor</p>
-            <Link href="/dashboard/activity" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition">
-              <Activity className="w-4 h-4 shrink-0" />
-              Activity
-            </Link>
-            <Link href="/dashboard/resources" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition">
-              <Cpu className="w-4 h-4 shrink-0" />
-              Resources
-            </Link>
-            <Link href="/dashboard/domains" className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition ${pathname.startsWith('/dashboard/domains') ? 'bg-[#FF6B35]/10 text-[#FF6B35] font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-              <Globe className="w-4 h-4 shrink-0" />
-              Domains
-            </Link>
+            {[
+              { href: "/dashboard/activity", icon: Activity, label: "Activity" },
+              { href: "/dashboard/resources", icon: Cpu, label: "Resources" },
+            ].map(({ href, icon: Icon, label }) => {
+              const active = pathname.startsWith(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition ${
+                    active
+                      ? "bg-[#FF6B35]/10 text-[#FF6B35] font-medium"
+                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  {label}
+                  {active && <ChevronRight className="w-3 h-3 ml-auto opacity-60" />}
+                </Link>
+              );
+            })}
           </div>
         </nav>
 

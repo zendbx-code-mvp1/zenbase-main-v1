@@ -43,7 +43,9 @@ class Project(Base):
     
     # Container
     container_id = Column(String, nullable=True)
-    port = Column(String, nullable=True)
+    port = Column(String, nullable=True)           # host-mapped port (legacy / fallback URL)
+    internal_port = Column(String, nullable=True)  # port the app listens on inside the container
+    container_name = Column(String, nullable=True, unique=True, index=True)  # e.g. zencloud-portfolio
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -58,17 +60,17 @@ class Project(Base):
     def deployment_url(self) -> str:
         """Generate deployment URL based on configuration"""
         from app.core.config import settings
-        
+
         # Use custom domain if configured
         if self.custom_domain:
             return f"http://{self.custom_domain}"
-        
-        # Use subdomain with base domain if configured
-        if settings.BASE_DOMAIN and settings.BASE_DOMAIN != "zencloud.dev":
+
+        # Use subdomain routing when a real domain is configured
+        if settings.BASE_DOMAIN and settings.BASE_DOMAIN not in ("zencloud.dev", "localhost"):
             return f"http://{self.subdomain}.{settings.BASE_DOMAIN}"
-        
-        # Fallback to localhost with port
+
+        # Local dev: use host-mapped port
         if self.port:
             return f"http://localhost:{self.port}"
-        
+
         return "Not deployed"

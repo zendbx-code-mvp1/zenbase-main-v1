@@ -11,6 +11,7 @@ interface LogEntry {
 interface RealTimeLogsProps {
   projectId: string;
   token: string;
+  containerStatus?: string;
 }
 
 export default function RealTimeLogs({ projectId, token }: RealTimeLogsProps) {

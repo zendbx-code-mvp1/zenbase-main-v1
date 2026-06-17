@@ -29,9 +29,14 @@ class Settings(BaseSettings):
     
     # Docker
     DOCKER_HOST: str = "unix:///var/run/docker.sock"
-    
+    DOCKER_NETWORK: str = "zenbase-net"
+
     # Domain
     BASE_DOMAIN: str = "zencloud.dev"
+
+    # Nginx
+    NGINX_CONTAINER: str = "zenbase-nginx"
+    NGINX_CONF_DIR: str = "/etc/nginx/conf.d"
     
     # CORS
     FRONTEND_URL: str = "http://localhost:3000"

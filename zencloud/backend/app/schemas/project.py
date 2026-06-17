@@ -34,10 +34,12 @@ class ProjectResponse(ProjectBase):
     status: ProjectStatus
     container_id: Optional[str] = None
     port: Optional[str] = None
+    internal_port: Optional[str] = None
+    container_name: Optional[str] = None
     deployment_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 

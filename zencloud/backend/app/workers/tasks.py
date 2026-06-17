@@ -102,24 +102,28 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str 
         
         # Start container
         logs.append("🚀 Starting container...")
+        container_name = f"zencloud-{project.subdomain}"
         container_info = docker_service.create_container(
             image_name=image_name,
-            container_name=f"zencloud-{project.subdomain}",
+            container_name=container_name,
             port=port,
             env_vars=env_vars
         )
-        
+
+        # Determine internal app port from framework config
+        internal_port = str(config.get("port", 3000))
+
         # Generate URL
         from app.core.config import settings
-        if settings.BASE_DOMAIN and settings.BASE_DOMAIN != "zencloud.dev":
+        if settings.BASE_DOMAIN and settings.BASE_DOMAIN not in ("zencloud.dev", "localhost"):
             deployment_url = f"http://{project.subdomain}.{settings.BASE_DOMAIN}"
         else:
             deployment_url = f"http://localhost:{port}"
-        
+
         logs.append(f"✅ Container started: {container_info['container_id'][:12]}")
         logs.append(f"\n🎉 Deployment successful!")
         logs.append(f"   URL: {deployment_url}")
-        
+
         # Final database update
         deployment.build_logs = "\n".join(logs)
         deployment.status = DeploymentStatus.SUCCESS
@@ -127,7 +131,22 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str 
         project.status = ProjectStatus.ACTIVE
         project.container_id = container_info['container_id']
         project.port = str(port)
+        project.internal_port = internal_port
+        project.container_name = container_name
         db.commit()
+
+        # Generate Nginx reverse proxy config for this project
+        try:
+            from app.services.reverse_proxy_service import ReverseProxyService
+            ReverseProxyService().generate_project_config(project)
+            logs.append("   Reverse proxy configured ✅")
+            deployment.build_logs = "\n".join(logs)
+            db.commit()
+        except Exception as proxy_err:
+            # Non-fatal — app still runs via direct port
+            logs.append(f"   ⚠️  Proxy config skipped: {proxy_err}")
+            deployment.build_logs = "\n".join(logs)
+            db.commit()
         
         # Cleanup
         deployment_service.cleanup(project_dir)
