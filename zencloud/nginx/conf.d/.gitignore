@@ -1,0 +1,5 @@
+# Auto-generated per-project nginx configs — do not commit.
+# Only default.conf is tracked in git.
+*
+!.gitignore
+!default.conf

@@ -1,8 +1,13 @@
 """Docker container management service using CLI"""
+import os
 import subprocess
 import json
 from typing import Dict, Optional, List
 import random
+
+# The Docker network shared by all zencloud services.
+# Matches the DOCKER_NETWORK env var set in docker-compose.
+DOCKER_NETWORK = os.environ.get("DOCKER_NETWORK", "zencloud_zenbase-net")
 
 
 class DockerService:
@@ -40,10 +45,13 @@ class DockerService:
         image_name: str,
         container_name: str,
         port: int,
-        env_vars: Dict[str, str] = None
+        env_vars: Dict[str, str] = None,
+        internal_port: int = 3000,
+        network: str = None,
     ) -> Dict:
         """Create and start a Docker container using CLI"""
         try:
+            network = network or DOCKER_NETWORK
             # Remove existing container with same name
             subprocess.run(
                 ["docker", "rm", "-f", container_name],
@@ -56,7 +64,8 @@ class DockerService:
                 "docker", "run",
                 "-d",  # Detached
                 "--name", container_name,
-                "-p", f"{port}:3000",  # Port mapping
+                "--network", network,          # Attach to shared network so Nginx can reach by name
+                "-p", f"{port}:{internal_port}",  # Host port mapping (fallback / direct access)
                 "--restart", "unless-stopped",
                 "--memory", "512m",  # Memory limit
                 "--cpus", "0.5",  # CPU limit

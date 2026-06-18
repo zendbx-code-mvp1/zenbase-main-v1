@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 
     # Nginx
     NGINX_CONTAINER: str = "zenbase-nginx"
-    NGINX_CONF_DIR: str = "/etc/nginx/conf.d"
+    NGINX_CONF_DIR: str = "/nginx/conf.d"
     
     # CORS
     FRONTEND_URL: str = "http://localhost:3000"

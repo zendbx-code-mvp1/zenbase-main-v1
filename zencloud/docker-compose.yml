@@ -62,7 +62,7 @@ services:
       GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://localhost:3000/auth/callback}
       FRONTEND_URL: http://localhost:3000
       # Shared Docker network — deployment service attaches project containers here
-      DOCKER_NETWORK: zenbase-net
+      DOCKER_NETWORK: zencloud_zenbase-net
       # Nginx config dir as seen from inside the backend container.
       # We mount the same host path so the backend can write .conf files
       # that Nginx picks up on reload.
@@ -92,7 +92,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: dev-secret-key-change-in-production
       DOCKER_HOST: unix:///var/run/docker.sock
-      DOCKER_NETWORK: zenbase-net
+      DOCKER_NETWORK: zencloud_zenbase-net
       NGINX_CONF_DIR: /nginx/conf.d
       NGINX_CONTAINER: zenbase-nginx
       BASE_DOMAIN: localhost
@@ -124,7 +124,7 @@ services:
       - backend
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/nginx-health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/nginx-health"]
       interval: 10s
       timeout: 5s
       retries: 3

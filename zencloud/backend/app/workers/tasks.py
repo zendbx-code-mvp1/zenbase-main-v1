@@ -49,31 +49,31 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str 
         logs = []
         
         # Clone repository
-        logs.append("📦 Cloning repository...")
+        logs.append("Cloning repository...")
         project_dir = deployment_service.clone_repository(
             project.repository_url,
             project.branch,
             access_token
         )
-        logs.append(f"✅ Repository cloned")
+        logs.append("Repository cloned")
         
         # Detect framework
-        logs.append("🔍 Detecting framework...")
+        logs.append("Detecting framework...")
         framework, config = deployment_service.detect_framework(project_dir)
         project.framework = framework
-        logs.append(f"✅ Detected: {framework.value}")
+        logs.append(f"Detected: {framework.value}")
         
         # Generate Dockerfile
-        logs.append("📝 Generating Dockerfile...")
+        logs.append("Generating Dockerfile...")
         dockerfile = deployment_service.generate_dockerfile(framework, config)
-        logs.append("✅ Dockerfile generated")
+        logs.append("Dockerfile generated")
         
         # Update logs before long build
         deployment.build_logs = "\n".join(logs)
         db.commit()
         
         # Build Docker image
-        logs.append("🔨 Building Docker image...")
+        logs.append("Building Docker image...")
         image_name = f"zencloud-{project.subdomain}:latest"
         success, build_output = deployment_service.build_docker_image(
             project_dir,
@@ -82,7 +82,7 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str 
         )
         
         if not success:
-            logs.append(f"❌ Build failed:\n{build_output}")
+            logs.append(f"Build failed:\n{build_output}")
             deployment.build_logs = "\n".join(logs)
             deployment.status = DeploymentStatus.FAILED
             project.status = ProjectStatus.FAILED
@@ -90,7 +90,7 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str 
             deployment_service.cleanup(project_dir)
             return
         
-        logs.append("✅ Image built")
+        logs.append("Image built")
         
         # Get environment variables
         env_vars = {env_var.key: env_var.value for env_var in project.env_vars}
@@ -98,20 +98,21 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str 
         # Allocate port
         used_ports = [int(p.port) for p in db.query(Project).filter(Project.port.isnot(None)).all()]
         port = docker_service.allocate_port(used_ports)
-        logs.append(f"✅ Port allocated: {port}")
-        
+        logs.append(f"Port allocated: {port}")
+
+        # Determine internal app port from framework config
+        internal_port = int(config.get("port", 3000))
+
         # Start container
-        logs.append("🚀 Starting container...")
+        logs.append("Starting container...")
         container_name = f"zencloud-{project.subdomain}"
         container_info = docker_service.create_container(
             image_name=image_name,
             container_name=container_name,
             port=port,
-            env_vars=env_vars
+            env_vars=env_vars,
+            internal_port=internal_port,
         )
-
-        # Determine internal app port from framework config
-        internal_port = str(config.get("port", 3000))
 
         # Generate URL
         from app.core.config import settings
@@ -120,9 +121,9 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str 
         else:
             deployment_url = f"http://localhost:{port}"
 
-        logs.append(f"✅ Container started: {container_info['container_id'][:12]}")
-        logs.append(f"\n🎉 Deployment successful!")
-        logs.append(f"   URL: {deployment_url}")
+        logs.append(f"Container started: {container_info['container_id'][:12]}")
+        logs.append(f"Deployment successful!")
+        logs.append(f"URL: {deployment_url}")
 
         # Final database update
         deployment.build_logs = "\n".join(logs)
@@ -131,7 +132,7 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str 
         project.status = ProjectStatus.ACTIVE
         project.container_id = container_info['container_id']
         project.port = str(port)
-        project.internal_port = internal_port
+        project.internal_port = str(internal_port)
         project.container_name = container_name
         db.commit()
 
@@ -139,12 +140,11 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str 
         try:
             from app.services.reverse_proxy_service import ReverseProxyService
             ReverseProxyService().generate_project_config(project)
-            logs.append("   Reverse proxy configured ✅")
+            logs.append("Reverse proxy configured")
             deployment.build_logs = "\n".join(logs)
             db.commit()
         except Exception as proxy_err:
-            # Non-fatal — app still runs via direct port
-            logs.append(f"   ⚠️  Proxy config skipped: {proxy_err}")
+            logs.append(f"Proxy config skipped: {proxy_err}")
             deployment.build_logs = "\n".join(logs)
             db.commit()
         
@@ -158,7 +158,7 @@ def deploy_project(self, project_id: str, deployment_id: str, access_token: str 
         }
         
     except Exception as e:
-        error_msg = f"❌ Deployment failed: {str(e)}\n\n{traceback.format_exc()}"
+        error_msg = f"Deployment failed: {str(e)}\n\n{traceback.format_exc()}"
         
         if deployment:
             deployment.build_logs = (deployment.build_logs or "") + "\n" + error_msg
