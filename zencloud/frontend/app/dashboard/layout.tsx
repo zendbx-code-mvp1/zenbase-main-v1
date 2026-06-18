@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   Rocket, LayoutDashboard, FolderGit2, Database,
   Settings, LogOut, Bell, Activity, ChevronRight,
-  Cpu, Globe, GitBranch, HelpCircle, Search,
+  Cpu, Globe, GitBranch, HelpCircle, Search, Shield,
 } from "lucide-react";
 
 const NAV = [
@@ -14,6 +14,8 @@ const NAV = [
   { href: "/dashboard/projects", icon: FolderGit2, label: "Projects" },
   { href: "/dashboard/domains", icon: Globe, label: "Domains" },
   { href: "/dashboard/databases", icon: Database, label: "Databases" },
+  { href: "/dashboard/security", icon: Shield, label: "Security" },
+  { href: "/dashboard/notifications", icon: Bell, label: "Notifications" },
   { href: "/dashboard/settings", icon: Settings, label: "Settings" },
 ];
 
@@ -137,10 +139,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               />
             </div>
             {/* Bell */}
-            <button className="relative p-1.5 text-gray-400 hover:text-white transition rounded-lg hover:bg-white/5">
+            <Link href="/dashboard/notifications" className="relative p-1.5 text-gray-400 hover:text-white transition rounded-lg hover:bg-white/5">
               <Bell className="w-4 h-4" />
               <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-[#FF6B35] rounded-full" />
-            </button>
+            </Link>
             {/* Avatar */}
             <div className="w-7 h-7 rounded-full bg-[#FF6B35]/20 flex items-center justify-center text-xs font-bold text-[#FF6B35]">
               {initials}
