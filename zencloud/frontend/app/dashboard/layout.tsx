@@ -7,14 +7,17 @@ import {
   Rocket, LayoutDashboard, FolderGit2, Database,
   Settings, LogOut, Bell, Activity, ChevronRight,
   Cpu, Globe, GitBranch, HelpCircle, Search, Shield,
+  CreditCard, Zap
 } from "lucide-react";
 
 const NAV = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Overview" },
   { href: "/dashboard/projects", icon: FolderGit2, label: "Projects" },
+  { href: "/dashboard/deployments", icon: Zap, label: "Deployments" },
   { href: "/dashboard/domains", icon: Globe, label: "Domains" },
   { href: "/dashboard/databases", icon: Database, label: "Databases" },
   { href: "/dashboard/security", icon: Shield, label: "Security" },
+  { href: "/dashboard/billing", icon: CreditCard, label: "Billing" },
   { href: "/dashboard/notifications", icon: Bell, label: "Notifications" },
   { href: "/dashboard/settings", icon: Settings, label: "Settings" },
 ];

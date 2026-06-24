@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   Key, Shield, Eye, EyeOff, Copy, Trash2, Plus, Check, X,
   AlertTriangle, Clock, Globe, Smartphone, Lock, FileText,
-  Activity, Download, RefreshCw, Search, Filter, Info
+  Activity, Download, RefreshCw, Search, Filter, Info, Monitor, Tablet
 } from "lucide-react";
 
 type ApiKey = {
@@ -49,6 +49,8 @@ type Session = {
   lastActive: string;
   created: string;
   current: boolean;
+  os?: string;
+  deviceType?: "desktop" | "mobile" | "tablet";
 };
 
 export default function SecurityPage() {
@@ -277,17 +279,69 @@ export default function SecurityPage() {
       ipAddress: "192.168.1.100",
       lastActive: "Now",
       created: "2024-06-18 08:00:00",
-      current: true
+      current: true,
+      os: "Windows 11",
+      deviceType: "desktop"
     },
     {
       id: "2",
-      device: "iPhone 14",
-      browser: "Safari",
+      device: "iPhone 14 Pro",
+      browser: "Safari 17.2",
       location: "San Francisco, US",
       ipAddress: "192.168.1.101",
       lastActive: "2 hours ago",
       created: "2024-06-17 15:30:00",
-      current: false
+      current: false,
+      os: "iOS 17.2",
+      deviceType: "mobile"
+    },
+    {
+      id: "3",
+      device: "MacBook Pro",
+      browser: "Firefox 120",
+      location: "New York, US",
+      ipAddress: "192.168.2.45",
+      lastActive: "5 hours ago",
+      created: "2024-06-16 10:20:00",
+      current: false,
+      os: "macOS Sonoma",
+      deviceType: "desktop"
+    },
+    {
+      id: "4",
+      device: "iPad Air",
+      browser: "Safari 17.0",
+      location: "Los Angeles, US",
+      ipAddress: "192.168.3.88",
+      lastActive: "1 day ago",
+      created: "2024-06-15 14:45:00",
+      current: false,
+      os: "iPadOS 17.0",
+      deviceType: "tablet"
+    },
+    {
+      id: "5",
+      device: "Android Phone",
+      browser: "Chrome Mobile 119",
+      location: "Seattle, US",
+      ipAddress: "192.168.4.120",
+      lastActive: "2 days ago",
+      created: "2024-06-14 09:15:00",
+      current: false,
+      os: "Android 14",
+      deviceType: "mobile"
+    },
+    {
+      id: "6",
+      device: "Linux Desktop",
+      browser: "Brave 1.60",
+      location: "Austin, US",
+      ipAddress: "192.168.5.77",
+      lastActive: "3 days ago",
+      created: "2024-06-13 18:00:00",
+      current: false,
+      os: "Ubuntu 22.04",
+      deviceType: "desktop"
     }
   ]);
 
@@ -1488,55 +1542,98 @@ export default function SecurityPage() {
               <h2 className="text-sm font-semibold text-white">Active Sessions</h2>
               <p className="text-xs text-gray-500 mt-0.5">Manage devices with access to your account</p>
             </div>
-            <span className="text-[10px] text-gray-500">{sessions.length} active</span>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] text-gray-500">{sessions.length} active sessions</span>
+              <button className="text-xs text-red-400 hover:text-red-300 transition">
+                Revoke All
+              </button>
+            </div>
           </div>
 
           <div className="divide-y divide-white/5">
-            {sessions.map((session) => (
-              <div key={session.id} className="p-5 hover:bg-white/2 transition">
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
-                    <Globe className="w-5 h-5 text-gray-400" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between gap-4 mb-2">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-sm font-medium text-white">{session.device}</h3>
-                          {session.current && (
-                            <span className="px-2 py-0.5 bg-green-500/10 text-green-400 text-[10px] rounded">
-                              Current
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-400">{session.browser}</p>
-                      </div>
-                      {!session.current && (
-                        <button
-                          onClick={() => revokeSession(session.id)}
-                          className="text-xs text-red-400 hover:text-red-300 transition"
-                        >
-                          Revoke
-                        </button>
-                      )}
+            {sessions.map((session) => {
+              const getDeviceIcon = () => {
+                switch (session.deviceType) {
+                  case "mobile":
+                    return <Smartphone className="w-5 h-5 text-[#FF6B35]" />;
+                  case "tablet":
+                    return <Tablet className="w-5 h-5 text-[#FF6B35]" />;
+                  case "desktop":
+                  default:
+                    return <Monitor className="w-5 h-5 text-[#FF6B35]" />;
+                }
+              };
+
+              return (
+                <div key={session.id} className="p-5 hover:bg-white/2 transition">
+                  <div className="flex items-start gap-4">
+                    <div className="w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center shrink-0 border border-white/5">
+                      {getDeviceIcon()}
                     </div>
-                    <div className="flex items-center gap-3 text-[10px] text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Globe className="w-3 h-3" />
-                        {session.location}
-                      </span>
-                      <span>•</span>
-                      <span>{session.ipAddress}</span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {session.lastActive}
-                      </span>
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between gap-4 mb-2">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-sm font-semibold text-white">{session.device}</h3>
+                            {session.current && (
+                              <span className="px-2 py-0.5 bg-green-500/10 text-green-400 text-[10px] rounded-md font-medium border border-green-500/20">
+                                Current Session
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-400">{session.browser} • {session.os}</p>
+                        </div>
+                        {!session.current && (
+                          <button
+                            onClick={() => revokeSession(session.id)}
+                            className="px-3 py-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/5 rounded-lg transition border border-red-500/20"
+                          >
+                            Revoke
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] text-gray-500">
+                        <span className="flex items-center gap-1.5">
+                          <Globe className="w-3.5 h-3.5" />
+                          {session.location}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <Activity className="w-3.5 h-3.5" />
+                          {session.ipAddress}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5" />
+                          Last active {session.lastActive}
+                        </span>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-white/5">
+                        <p className="text-[10px] text-gray-600">
+                          First signed in on {new Date(session.created).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+
+          <div className="px-5 py-4 bg-white/2 border-t border-white/5">
+            <div className="flex items-start gap-3">
+              <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs text-gray-400">
+                  Sessions are automatically revoked after 30 days of inactivity. If you notice any suspicious activity, 
+                  revoke the session immediately and change your password.
+                </p>
               </div>
-            ))}
+            </div>
           </div>
         </div>
       )}

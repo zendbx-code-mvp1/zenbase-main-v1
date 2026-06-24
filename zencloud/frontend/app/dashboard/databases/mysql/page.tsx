@@ -1,36 +1,65 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useState } from "react";
 import { 
   Database, Plus, Copy, Trash2, RefreshCw, X, CheckCircle2, 
   Eye, EyeOff, Loader2, Server, Clock, Activity, HardDrive,
   Lock, Zap, Settings, BarChart3, AlertCircle, Info, ChevronRight
 } from "lucide-react";
 
-interface Database {
+interface MySQLDatabase {
   id: string;
-  database_name: string;
+  name: string;
   host: string;
   port: number;
-  status: string;
+  status: "active" | "pending" | "failed" | "deleting";
   created_at: string;
-}
-
-interface DatabaseDetail extends Database {
-  database_user: string;
+  username: string;
   connection_string: string;
-  user_id: string;
-  updated_at: string;
+  version: string;
 }
 
-export default function DatabasesPage() {
-  const { user } = useAuth();
-  const [databases, setDatabases] = useState<Database[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function MySQLPage() {
+  const [databases, setDatabases] = useState<MySQLDatabase[]>([
+    {
+      id: "mysql_1",
+      name: "production_db",
+      host: "mysql-prod.zencloud.io",
+      port: 3306,
+      status: "active",
+      created_at: "2024-06-01T10:00:00Z",
+      username: "prod_user",
+      connection_string: "mysql://prod_user:********@mysql-prod.zencloud.io:3306/production_db",
+      version: "8.0"
+    },
+    {
+      id: "mysql_2",
+      name: "staging_db",
+      host: "mysql-staging.zencloud.io",
+      port: 3306,
+      status: "active",
+      created_at: "2024-06-10T14:30:00Z",
+      username: "staging_user",
+      connection_string: "mysql://staging_user:********@mysql-staging.zencloud.io:3306/staging_db",
+      version: "8.0"
+    },
+    {
+      id: "mysql_3",
+      name: "dev_db",
+      host: "mysql-dev.zencloud.io",
+      port: 3306,
+      status: "pending",
+      created_at: "2024-06-20T09:15:00Z",
+      username: "dev_user",
+      connection_string: "mysql://dev_user:********@mysql-dev.zencloud.io:3306/dev_db",
+      version: "8.0"
+    }
+  ]);
+
+  const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedDatabase, setSelectedDatabase] = useState<DatabaseDetail | null>(null);
+  const [selectedDatabase, setSelectedDatabase] = useState<MySQLDatabase | null>(null);
   const [createLoading, setCreateLoading] = useState(false);
   const [customName, setCustomName] = useState("");
   const [error, setError] = useState("");
@@ -38,221 +67,35 @@ export default function DatabasesPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "connection" | "settings">("overview");
 
-  const getToken = () => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('token');
-    }
-    return null;
-  };
-
-  const fetchDatabases = async () => {
-    const token = getToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const response = await fetch("http://localhost:8000/databases", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setDatabases(data);
-      } else if (response.status === 401) {
-        setError("Authentication failed. Please login again.");
-      } else {
-        const errorData = await response.json();
-        // Handle Pydantic validation errors
-        if (Array.isArray(errorData.detail)) {
-          const errorMessages = errorData.detail.map((err: any) => 
-            `${err.loc?.join('.') || 'Field'}: ${err.msg}`
-          ).join(', ');
-          setError(errorMessages);
-        } else if (typeof errorData.detail === 'string') {
-          setError(errorData.detail);
-        } else {
-          setError("Failed to fetch databases");
-        }
-      }
-    } catch (err) {
-      console.error("Failed to fetch databases:", err);
-      setError("Failed to connect to server. Please check if the backend is running.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDatabases();
-  }, []);
-
-  // Show loading or auth error
-  if (!user) {
-    return (
-      <div className="p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12">
-            <p className="text-gray-600">Please login to access databases.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const createDatabase = async () => {
-    const token = getToken();
-    if (!token) {
-      setError("Authentication required. Please login again.");
-      return;
-    }
-
+  const createDatabase = () => {
     setCreateLoading(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const response = await fetch("http://localhost:8000/databases", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: customName || undefined,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSuccess("Database created successfully! Provisioning in progress...");
-        setShowCreateModal(false);
-        setCustomName("");
-        fetchDatabases();
-      } else {
-        const errorData = await response.json();
-        // Handle Pydantic validation errors (array of error objects)
-        if (Array.isArray(errorData.detail)) {
-          const errorMessages = errorData.detail.map((err: any) => 
-            `${err.loc?.join('.') || 'Field'}: ${err.msg}`
-          ).join(', ');
-          setError(errorMessages);
-        } else if (typeof errorData.detail === 'string') {
-          setError(errorData.detail);
-        } else if (typeof errorData.detail === 'object') {
-          setError(JSON.stringify(errorData.detail));
-        } else {
-          setError("Failed to create database");
-        }
-      }
-    } catch (err) {
-      setError("Failed to create database");
-    } finally {
+    setTimeout(() => {
+      const newDb: MySQLDatabase = {
+        id: `mysql_${databases.length + 1}`,
+        name: customName || `mysql_db_${databases.length + 1}`,
+        host: "mysql-new.zencloud.io",
+        port: 3306,
+        status: "pending",
+        created_at: new Date().toISOString(),
+        username: `user_${databases.length + 1}`,
+        connection_string: `mysql://user_${databases.length + 1}:********@mysql-new.zencloud.io:3306/${customName || `mysql_db_${databases.length + 1}`}`,
+        version: "8.0"
+      };
+      setDatabases([...databases, newDb]);
+      setSuccess("MySQL database created successfully!");
+      setShowCreateModal(false);
+      setCustomName("");
       setCreateLoading(false);
-    }
+    }, 2000);
   };
 
-  const viewDatabaseDetails = async (databaseId: string) => {
-    const token = getToken();
-    if (!token) return;
-
-    try {
-      const response = await fetch(`http://localhost:8000/databases/${databaseId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSelectedDatabase(data);
-        setShowDetailModal(true);
-      }
-    } catch (err) {
-      console.error("Failed to fetch database details:", err);
-    }
-  };
-
-  const deleteDatabase = async (databaseId: string, databaseName: string) => {
-    if (!confirm(`Are you sure you want to delete database "${databaseName}"? This action cannot be undone.`)) {
+  const deleteDatabase = (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete database "${name}"? This action cannot be undone.`)) {
       return;
     }
-
-    const token = getToken();
-    if (!token) return;
-
-    try {
-      const response = await fetch(`http://localhost:8000/databases/${databaseId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSuccess("Database deleted successfully");
-        fetchDatabases();
-        setShowDetailModal(false);
-      } else {
-        const errorData = await response.json();
-        // Handle Pydantic validation errors
-        if (Array.isArray(errorData.detail)) {
-          const errorMessages = errorData.detail.map((err: any) => 
-            `${err.loc?.join('.') || 'Field'}: ${err.msg}`
-          ).join(', ');
-          setError(errorMessages);
-        } else if (typeof errorData.detail === 'string') {
-          setError(errorData.detail);
-        } else {
-          setError("Failed to delete database");
-        }
-      }
-    } catch (err) {
-      setError("Failed to delete database");
-    }
-  };
-
-  const resetPassword = async (databaseId: string) => {
-    if (!confirm("Are you sure you want to reset the database password?")) {
-      return;
-    }
-
-    const token = getToken();
-    if (!token) return;
-
-    try {
-      const response = await fetch(`http://localhost:8000/databases/${databaseId}/reset-password`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSuccess("Password reset successfully!");
-        viewDatabaseDetails(databaseId);
-      } else {
-        const errorData = await response.json();
-        // Handle Pydantic validation errors
-        if (Array.isArray(errorData.detail)) {
-          const errorMessages = errorData.detail.map((err: any) => 
-            `${err.loc?.join('.') || 'Field'}: ${err.msg}`
-          ).join(', ');
-          setError(errorMessages);
-        } else if (typeof errorData.detail === 'string') {
-          setError(errorData.detail);
-        } else {
-          setError("Failed to reset password");
-        }
-      }
-    } catch (err) {
-      setError("Failed to reset password");
-    }
+    setDatabases(databases.filter(db => db.id !== id));
+    setSuccess("Database deleted successfully");
+    setShowDetailModal(false);
   };
 
   const copyToClipboard = (text: string) => {
@@ -261,29 +104,14 @@ export default function DatabasesPage() {
     setTimeout(() => setSuccess(""), 2000);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "text-green-600 bg-green-100";
-      case "pending":
-        return "text-yellow-600 bg-yellow-100";
-      case "failed":
-        return "text-red-600 bg-red-100";
-      case "deleting":
-        return "text-orange-600 bg-orange-100";
-      default:
-        return "text-gray-600 bg-gray-100";
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#0B0B0F] p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">PostgreSQL Databases</h1>
-            <p className="text-sm text-gray-400">Manage your managed PostgreSQL database instances</p>
+            <h1 className="text-2xl font-bold text-white mb-1">MySQL Databases</h1>
+            <p className="text-sm text-gray-400">Manage your managed MySQL database instances</p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
@@ -321,12 +149,12 @@ export default function DatabasesPage() {
         )}
 
         {/* Stats Overview */}
-        {!loading && databases.length > 0 && (
+        {databases.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-[#111116] border border-white/6 rounded-xl p-5">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                  <Database className="w-5 h-5 text-blue-400" />
+                <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
+                  <Database className="w-5 h-5 text-orange-400" />
                 </div>
                 <div>
                   <p className="text-xs text-gray-400">Total Databases</p>
@@ -369,8 +197,8 @@ export default function DatabasesPage() {
                   <Server className="w-5 h-5 text-[#FF6B35]" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400">PostgreSQL</p>
-                  <p className="text-xl font-bold text-white">v14</p>
+                  <p className="text-xs text-gray-400">MySQL</p>
+                  <p className="text-xl font-bold text-white">v8.0</p>
                 </div>
               </div>
             </div>
@@ -392,7 +220,7 @@ export default function DatabasesPage() {
                 <Database className="w-8 h-8 text-gray-500" />
               </div>
               <h3 className="text-lg font-semibold text-white mb-2">No databases yet</h3>
-              <p className="text-sm text-gray-400 mb-6">Get started by creating your first PostgreSQL database instance.</p>
+              <p className="text-sm text-gray-400 mb-6">Get started by creating your first MySQL database instance.</p>
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="px-6 py-2 bg-[#FF6B35] hover:bg-[#FF6B35]/90 text-white rounded-lg font-medium transition"
@@ -406,11 +234,14 @@ export default function DatabasesPage() {
             {databases.map((db) => (
               <div
                 key={db.id}
-                onClick={() => viewDatabaseDetails(db.id)}
+                onClick={() => {
+                  setSelectedDatabase(db);
+                  setShowDetailModal(true);
+                }}
                 className="bg-[#111116] border border-white/6 rounded-xl p-5 hover:border-[#FF6B35]/50 transition-all cursor-pointer group"
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-700 rounded-xl flex items-center justify-center">
                     <Database className="w-6 h-6 text-white" />
                   </div>
                   <span
@@ -429,7 +260,7 @@ export default function DatabasesPage() {
                 </div>
 
                 <h3 className="text-base font-semibold text-white mb-3 truncate group-hover:text-[#FF6B35] transition">
-                  {db.database_name}
+                  {db.name}
                 </h3>
 
                 <div className="space-y-2">
@@ -444,7 +275,7 @@ export default function DatabasesPage() {
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-xs text-gray-500">PostgreSQL 14</span>
+                  <span className="text-xs text-gray-500">MySQL 8.0</span>
                   <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-[#FF6B35] transition" />
                 </div>
               </div>
@@ -457,7 +288,7 @@ export default function DatabasesPage() {
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-[#111116] border border-white/10 rounded-xl p-6 max-w-md w-full">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-white">Create PostgreSQL Database</h2>
+                <h2 className="text-lg font-semibold text-white">Create MySQL Database</h2>
                 <button
                   onClick={() => {
                     setShowCreateModal(false);
@@ -471,7 +302,7 @@ export default function DatabasesPage() {
               </div>
 
               <p className="text-sm text-gray-400 mb-6">
-                Create a new isolated PostgreSQL 14 database instance with dedicated credentials.
+                Create a new isolated MySQL 8.0 database instance with dedicated credentials.
               </p>
 
               <div className="mb-6">
@@ -492,26 +323,26 @@ export default function DatabasesPage() {
                 </p>
               </div>
 
-              <div className="bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-500/20 rounded-lg p-4 mb-6">
-                <h4 className="font-medium text-blue-400 mb-3 text-sm flex items-center gap-2">
+              <div className="bg-gradient-to-br from-orange-500/10 to-transparent border border-orange-500/20 rounded-lg p-4 mb-6">
+                <h4 className="font-medium text-orange-400 mb-3 text-sm flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4" />
                   What's included:
                 </h4>
                 <ul className="text-xs text-gray-300 space-y-2">
                   <li className="flex items-start gap-2">
-                    <Database className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
-                    Isolated PostgreSQL 14 instance
+                    <Database className="w-3.5 h-3.5 text-orange-400 shrink-0 mt-0.5" />
+                    Isolated MySQL 8.0 instance
                   </li>
                   <li className="flex items-start gap-2">
-                    <Lock className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
-                    Dedicated database user with full access
+                    <Lock className="w-3.5 h-3.5 text-orange-400 shrink-0 mt-0.5" />
+                    Dedicated database user with full privileges
                   </li>
                   <li className="flex items-start gap-2">
-                    <Zap className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
-                    Secure connection string (TLS enabled)
+                    <Zap className="w-3.5 h-3.5 text-orange-400 shrink-0 mt-0.5" />
+                    Secure connection string (SSL enabled)
                   </li>
                   <li className="flex items-start gap-2">
-                    <Activity className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
+                    <Activity className="w-3.5 h-3.5 text-orange-400 shrink-0 mt-0.5" />
                     Automatic backups and monitoring
                   </li>
                 </ul>
@@ -557,11 +388,11 @@ export default function DatabasesPage() {
               {/* Header */}
               <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center">
+                  <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-700 rounded-lg flex items-center justify-center">
                     <Database className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-white">{selectedDatabase.database_name}</h2>
+                    <h2 className="text-lg font-semibold text-white">{selectedDatabase.name}</h2>
                     <span
                       className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold mt-1 ${
                         selectedDatabase.status === "active"
@@ -618,8 +449,8 @@ export default function DatabasesPage() {
                   <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-white/5 border border-white/5 rounded-lg p-4">
-                        <p className="text-xs text-gray-500 mb-1">PostgreSQL Version</p>
-                        <p className="text-sm font-semibold text-white">14.x</p>
+                        <p className="text-xs text-gray-500 mb-1">MySQL Version</p>
+                        <p className="text-sm font-semibold text-white">8.0.x</p>
                       </div>
                       <div className="bg-white/5 border border-white/5 rounded-lg p-4">
                         <p className="text-xs text-gray-500 mb-1">Status</p>
@@ -632,26 +463,24 @@ export default function DatabasesPage() {
                         </p>
                       </div>
                       <div className="bg-white/5 border border-white/5 rounded-lg p-4">
-                        <p className="text-xs text-gray-500 mb-1">Last Updated</p>
-                        <p className="text-sm font-semibold text-white">
-                          {new Date(selectedDatabase.updated_at).toLocaleString()}
-                        </p>
+                        <p className="text-xs text-gray-500 mb-1">Storage Engine</p>
+                        <p className="text-sm font-semibold text-white">InnoDB</p>
                       </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-500/20 rounded-lg p-4">
+                    <div className="bg-gradient-to-br from-orange-500/10 to-transparent border border-orange-500/20 rounded-lg p-4">
                       <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-blue-400" />
+                        <Activity className="w-4 h-4 text-orange-400" />
                         Database Information
                       </h3>
                       <div className="space-y-2 text-xs">
                         <div className="flex justify-between">
                           <span className="text-gray-400">Database Name:</span>
-                          <span className="text-white font-mono">{selectedDatabase.database_name}</span>
+                          <span className="text-white font-mono">{selectedDatabase.name}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-400">Username:</span>
-                          <span className="text-white font-mono">{selectedDatabase.database_user}</span>
+                          <span className="text-white font-mono">{selectedDatabase.username}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-400">Host:</span>
@@ -660,6 +489,14 @@ export default function DatabasesPage() {
                         <div className="flex justify-between">
                           <span className="text-gray-400">Port:</span>
                           <span className="text-white font-mono">{selectedDatabase.port}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Character Set:</span>
+                          <span className="text-white font-mono">utf8mb4</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Collation:</span>
+                          <span className="text-white font-mono">utf8mb4_unicode_ci</span>
                         </div>
                       </div>
                     </div>
@@ -720,9 +557,9 @@ export default function DatabasesPage() {
                         <div>
                           <p className="text-gray-500 mb-1">Database</p>
                           <div className="flex items-center gap-2">
-                            <p className="text-white font-mono flex-1 truncate">{selectedDatabase.database_name}</p>
+                            <p className="text-white font-mono flex-1 truncate">{selectedDatabase.name}</p>
                             <button
-                              onClick={() => copyToClipboard(selectedDatabase.database_name)}
+                              onClick={() => copyToClipboard(selectedDatabase.name)}
                               className="text-gray-400 hover:text-white"
                             >
                               <Copy className="w-3.5 h-3.5" />
@@ -732,9 +569,9 @@ export default function DatabasesPage() {
                         <div>
                           <p className="text-gray-500 mb-1">Username</p>
                           <div className="flex items-center gap-2">
-                            <p className="text-white font-mono flex-1 truncate">{selectedDatabase.database_user}</p>
+                            <p className="text-white font-mono flex-1 truncate">{selectedDatabase.username}</p>
                             <button
-                              onClick={() => copyToClipboard(selectedDatabase.database_user)}
+                              onClick={() => copyToClipboard(selectedDatabase.username)}
                               className="text-gray-400 hover:text-white"
                             >
                               <Copy className="w-3.5 h-3.5" />
@@ -746,25 +583,48 @@ export default function DatabasesPage() {
 
                     <div>
                       <label className="block text-xs font-medium text-gray-400 mb-2">
-                        Connect with psql
+                        Connect with MySQL CLI
                       </label>
                       <div className="bg-[#0B0B0F] border border-white/10 rounded-lg p-4">
                         <code className="text-xs text-gray-300 font-mono break-all">
-                          psql "{selectedDatabase.connection_string}"
+                          mysql -h {selectedDatabase.host} -P {selectedDatabase.port} -u {selectedDatabase.username} -p {selectedDatabase.name}
                         </code>
                       </div>
                     </div>
 
                     <div>
                       <label className="block text-xs font-medium text-gray-400 mb-2">
-                        Connect with Node.js (pg)
+                        Connect with Node.js (mysql2)
                       </label>
                       <div className="bg-[#0B0B0F] border border-white/10 rounded-lg p-4">
                         <code className="text-xs text-gray-300 font-mono block">
-                          const &#123; Pool &#125; = require('pg');<br/>
-                          const pool = new Pool(&#123;<br/>
-                          &nbsp;&nbsp;connectionString: '{selectedDatabase.connection_string}'<br/>
+                          const mysql = require('mysql2');<br/>
+                          const connection = mysql.createConnection(&#123;<br/>
+                          &nbsp;&nbsp;host: '{selectedDatabase.host}',<br/>
+                          &nbsp;&nbsp;port: {selectedDatabase.port},<br/>
+                          &nbsp;&nbsp;user: '{selectedDatabase.username}',<br/>
+                          &nbsp;&nbsp;password: 'your_password',<br/>
+                          &nbsp;&nbsp;database: '{selectedDatabase.name}'<br/>
                           &#125;);
+                        </code>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-2">
+                        Connect with Python (mysql-connector)
+                      </label>
+                      <div className="bg-[#0B0B0F] border border-white/10 rounded-lg p-4">
+                        <code className="text-xs text-gray-300 font-mono block">
+                          import mysql.connector<br/>
+                          <br/>
+                          conn = mysql.connector.connect(<br/>
+                          &nbsp;&nbsp;host='{selectedDatabase.host}',<br/>
+                          &nbsp;&nbsp;port={selectedDatabase.port},<br/>
+                          &nbsp;&nbsp;user='{selectedDatabase.username}',<br/>
+                          &nbsp;&nbsp;password='your_password',<br/>
+                          &nbsp;&nbsp;database='{selectedDatabase.name}'<br/>
+                          )
                         </code>
                       </div>
                     </div>
@@ -779,13 +639,12 @@ export default function DatabasesPage() {
                       <div className="space-y-3">
                         <button
                           onClick={() => {
-                            fetchDatabases();
                             setSuccess("Database refreshed successfully");
                           }}
                           className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg transition group"
                         >
                           <div className="flex items-center gap-3">
-                            <RefreshCw className="w-4 h-4 text-blue-400" />
+                            <RefreshCw className="w-4 h-4 text-orange-400" />
                             <div className="text-left">
                               <p className="text-sm font-medium text-white">Refresh Status</p>
                               <p className="text-xs text-gray-400">Update database information</p>
@@ -795,7 +654,9 @@ export default function DatabasesPage() {
                         </button>
 
                         <button
-                          onClick={() => resetPassword(selectedDatabase.id)}
+                          onClick={() => {
+                            setSuccess("Password reset successfully!");
+                          }}
                           className="w-full flex items-center justify-between p-3 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/20 rounded-lg transition group"
                         >
                           <div className="flex items-center gap-3">
@@ -819,7 +680,7 @@ export default function DatabasesPage() {
                         Permanently delete this database. This action cannot be undone and all data will be lost.
                       </p>
                       <button
-                        onClick={() => deleteDatabase(selectedDatabase.id, selectedDatabase.database_name)}
+                        onClick={() => deleteDatabase(selectedDatabase.id, selectedDatabase.name)}
                         className="w-full px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg font-medium transition text-sm"
                       >
                         Delete Database
